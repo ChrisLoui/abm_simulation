@@ -1,70 +1,94 @@
-# Getting Started with Create React App
+# Traffic Simulation - Bus Rapid Transit System
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This project is an agent-based traffic simulation that models a 2.6km road system with multiple lanes, including a dedicated bus lane. The simulation visualizes cars and buses moving along the road with realistic behavior, including collision avoidance, lane changes, and scheduled bus stops.
 
-## Available Scripts
+![Traffic Simulation Screenshot](https://via.placeholder.com/800x400?text=Traffic+Simulation)
 
-In the project directory, you can run:
+## Features
 
-### `npm start`
+- **Multiple Lane System**: Includes a dedicated bus lane and regular traffic lanes
+- **Realistic Vehicle Behavior**:
+  - Collision avoidance and vehicle following behavior
+  - Lane changing for regular vehicles based on driver personality
+  - Buses stop at designated bus stops
+- **Driver Personalities**: Cars have distinct behavior types (polite, neutral, aggressive)
+- **Real-time Visualization**: Canvas-based rendering with detailed vehicle graphics
+- **Configurable Settings**: Adjust vehicle counts, speeds, and other parameters
+- **Scheduled Bus Service**: Buses enter the simulation at regular intervals
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Bus Behavior
+Buses in this simulation follow these rules:
+- Travel only in the dedicated bus lane
+- Stop at designated bus stops along the route
+- Wait briefly at each stop (0-300ms) before continuing
+- Stop when obstacles are detected ahead
+- Automatically continue when the path ahead is clear
+- Visual indicators show when a bus is stopped at a station or waiting due to traffic
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## How to Run
 
-### `npm test`
+### Prerequisites
+- Node.js (v14 or later)
+- npm
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Installation
 
-### `npm run build`
+1. Clone the repository:
+```
+git clone https://github.com/yourusername/abm_simulation.git
+cd abm_simulation
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+2. Install dependencies:
+```
+npm install
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+3. Start the development server:
+```
+npm start
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+4. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### `npm run eject`
+## Usage
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+1. Click the **Setup** button to initialize the simulation with the current settings.
+2. Click the **Play** button to start the movement of vehicles.
+3. Use the **Settings** button to adjust parameters like car count, bus count, and speed ranges.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Project Structure
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+- `/src/BRT/` - Main simulation code
+  - `TrafficSimulation.jsx` - Core simulation component
+  - `vehicleLogic.js` - Logic for vehicle movement and behavior
+  - `renderLogic.js` - Canvas rendering and visualization
+  - `constants.js` - Simulation parameters and settings
+  - `SettingsPanel.jsx` - UI for adjusting simulation parameters
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## Simulation Details
 
-## Learn More
+- Road length: 2.6km (2600 meters)
+- Canvas dimensions: 5000×800 pixels
+- Scheduled bus service: One bus every 30 minutes (simulation time)
+- Vehicle scale: Proportional to real-world dimensions
+  - Cars: 4.5m × 2.5m
+  - Buses: 12m × 2.5m
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## Future Enhancements
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+- Traffic light systems
+- Pedestrian interactions
+- Additional vehicle types
+- Multiple road configurations
+- Data collection and analytics dashboard
 
-### Code Splitting
+## License
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+[MIT](LICENSE)
 
-### Analyzing the Bundle Size
+## Acknowledgements
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- React.js for UI components
+- HTML5 Canvas for rendering
+- Create React App for project bootstrapping
