@@ -50,6 +50,9 @@ const drawLine = (ctx, points, strokeStyle, lineWidth, lineDash = []) => {
 
 const drawBusStops = (ctx, busStops) => {
     busStops.forEach((busStop, index) => {
+        // Ensure waitingPassengers is defined
+        const waitingPassengers = busStop.waitingPassengers || 0;
+
         // Draw the station base
         ctx.lineWidth = 7;
         ctx.strokeStyle = COLORS.BUS_STOP_RING;
@@ -77,7 +80,7 @@ const drawBusStops = (ctx, busStops) => {
         const minRadius = 10;
 
         // Calculate circle size based on waiting passengers (0-20)
-        const passengerRatio = busStop.waitingPassengers / 20;
+        const passengerRatio = waitingPassengers / 20;
         const indicatorRadius = minRadius + (maxRadius - minRadius) * passengerRatio;
 
         // Draw the green circle with a white border
@@ -98,7 +101,7 @@ const drawBusStops = (ctx, busStops) => {
         ctx.font = 'bold 16px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(`${busStop.waitingPassengers}`, indicatorX, indicatorY);
+        ctx.fillText(`${waitingPassengers}`, indicatorX, indicatorY);
 
         // Draw station roof
         ctx.beginPath();
