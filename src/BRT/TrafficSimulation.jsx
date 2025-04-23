@@ -11,10 +11,12 @@ import {
     createCar,
     initializeBuses,
     updateVehicles,
-    updateBuses
+    updateBuses,
+    updateThroughput
 } from './vehicleLogic';
 import { renderCanvas, renderSimulation } from './renderLogic';
 import SettingsPanel from './SettingsPanel';
+import ThroughputChart from './ThroughputChart';
 
 const TrafficSimulation = () => {
     // New setting: carsPerMinute determines how many cars spawn per minute.
@@ -38,11 +40,17 @@ const TrafficSimulation = () => {
     const [activeBusCount, setActiveBusCount] = useState(0);
     const [showSettings, setShowSettings] = useState(false);
     const [trafficDensity, setTrafficDensity] = useState(0);
+    const [throughputHistory, setThroughputHistory] = useState([]);
+    const throughputHistoryRef = useRef([]);
+    const [totalPassengers, setTotalPassengers] = useState(0);
+    const [totalBusPassengers, setTotalBusPassengers] = useState(0);
+    const [totalCarPassengers, setTotalCarPassengers] = useState(0);
 
     const canvasRef = useRef(null);
     const animationRef = useRef(null);
     const lastTimeRef = useRef(0);
     const carSpawnerIntervalRef = useRef(null); // Track the car spawner interval
+    const throughputCanvasRef = useRef(null);
 
     // Calculate scale factor (pixels per meter).
     const scaleFactor = CANVAS_WIDTH / ROAD_LENGTH_METERS;
@@ -134,25 +142,8 @@ const TrafficSimulation = () => {
                 // Check if prevVehicles is defined before using .length
                 if (!prevVehicles) return [newCar];
 
-                // Limit maximum vehicles to prevent performance issues
-                const maxVehicles = 200;
-
-                // Calculate current density
-                const currentDensity = prevVehicles.length / maxVehicles;
-
-                // Skip spawning sometimes when density is high
-                if (currentDensity > 0.7 && Math.random() < currentDensity - 0.5) {
-                    return prevVehicles; // Skip this spawn
-                }
-
-                const updatedVehicles = [...prevVehicles, newCar];
-
-                // If over max, prioritize keeping newer vehicles
-                if (updatedVehicles.length > maxVehicles) {
-                    return updatedVehicles.slice(updatedVehicles.length - maxVehicles);
-                }
-
-                return updatedVehicles;
+                // Add the new car without any density checks
+                return [...prevVehicles, newCar];
             });
         }, spawnInterval);
 
@@ -163,6 +154,13 @@ const TrafficSimulation = () => {
     };
 
     const handleSetup = () => {
+        // Reset all passenger counts and throughput data
+        setTotalBusPassengers(0);
+        setTotalCarPassengers(0);
+        setThroughputHistory([]);
+        throughputHistoryRef.current = [];
+
+        // Reset the simulation
         initializeTrafficElements();
     };
 
@@ -182,6 +180,37 @@ const TrafficSimulation = () => {
             // First update all vehicles
             let updated = updateVehicles(prevVehicles, buses, deltaTime, LANES);
 
+            // Count cars that have completed a full loop
+            let completedCars = 0;
+            updated.forEach(vehicle => {
+                if (vehicle.type === 'car' && vehicle.pathPosition > 0.95) {
+                    completedCars++;
+                    vehicle.pathPosition = 0; // Reset position to start
+                }
+            });
+
+            // Update car passenger count (3 passengers per car)
+            if (completedCars > 0) {
+                setTotalCarPassengers(prev => prev + (completedCars * 3));
+            }
+
+            // Update throughput data every second (1000 ticks)
+            if (timestamp % 1000 < deltaTime) {
+                const throughputData = updateThroughput(updated, buses);
+                if (throughputData) {
+                    // Update throughput history
+                    setThroughputHistory(prev => {
+                        const newHistory = [...prev, throughputData];
+                        // Keep only the last 30 data points
+                        return newHistory.slice(-30);
+                    });
+                    throughputHistoryRef.current = [...throughputHistoryRef.current, throughputData].slice(-30);
+
+                    // Update bus passenger count
+                    setTotalBusPassengers(prev => prev + throughputData.buses);
+                }
+            }
+
             // Monitor for stuck cars but don't remove them
             updated = updated.map(car => {
                 if (car.type === 'car') {
@@ -194,38 +223,36 @@ const TrafficSimulation = () => {
 
                     // Check if the car has moved
                     const positionChange = Math.abs(car.pathPosition - (car.lastPosition || 0));
-                    car.lastPosition = car.pathPosition;
-
-                    if (positionChange < 0.0001 && !car.waiting) {
+                    if (positionChange < 0.001) {
                         car.stuckTimer += deltaTime;
                         car.consecutiveStuckFrames++;
                     } else {
-                        // Reset stuck timer if car moved significantly
-                        car.stuckTimer = Math.max(0, car.stuckTimer - (deltaTime * 0.5));
+                        car.stuckTimer = 0;
                         car.consecutiveStuckFrames = 0;
                     }
+                    car.lastPosition = car.pathPosition;
                 }
                 return car;
-            }).filter(car => {
-                // Only remove vehicles that have completed the circuit or gone off-screen
-                const offScreen = car.x < -100 || car.x > CANVAS_WIDTH + 100 ||
-                    car.y < -100 || car.y > CANVAS_HEIGHT + 100;
-
-                // If a car completed a full loop, let it exit
-                const completedLoop = car.pathPosition > 0.98;
-
-                return !offScreen && !completedLoop;
             });
 
             return updated;
         });
 
         // Update buses
-        setBuses(prevBuses =>
-            updateBuses(prevBuses, vehicles, BUS_STOPS, CANVAS_WIDTH, deltaTime, LANES)
+        setBuses(prevBuses => updateBuses(prevBuses, vehicles, BUS_STOPS, CANVAS_WIDTH, deltaTime, LANES));
+
+        // Render the current state
+        renderSimulation(
+            canvasRef.current,
+            vehicles,
+            buses,
+            BUS_STOPS,
+            LANES,
+            CANVAS_WIDTH,
+            CANVAS_HEIGHT,
+            throughputHistoryRef.current
         );
 
-        renderSimulation(canvasRef.current, vehicles, buses);
         animationRef.current = requestAnimationFrame(animate);
     };
 
@@ -273,6 +300,13 @@ const TrafficSimulation = () => {
         };
     }, []);
 
+    // Update passenger data in the visualization component
+    useEffect(() => {
+        if (typeof window !== 'undefined' && window.updatePassengerData) {
+            window.updatePassengerData(vehicles, buses);
+        }
+    }, [vehicles, buses]);
+
     return (
         <div className="flex flex-col items-center p-4 bg-gray-100 rounded-lg">
             <h2 className="text-2xl font-bold mb-2">
@@ -281,6 +315,7 @@ const TrafficSimulation = () => {
             <p className="text-sm text-gray-600 mb-4">
                 Scheduled Bus Service: One bus every 30 simulation minutes (30 seconds here).
             </p>
+
             <div className="relative mb-4">
                 <canvas
                     ref={canvasRef}
@@ -339,14 +374,26 @@ const TrafficSimulation = () => {
                         <div className="text-xs mt-1">
                             Traffic Density:
                             <span className={`font-semibold ml-1 ${trafficDensity > 75 ? 'text-red-600' :
-                                    trafficDensity > 50 ? 'text-yellow-600' :
-                                        'text-green-600'
+                                trafficDensity > 50 ? 'text-yellow-600' :
+                                    'text-green-600'
                                 }`}>
                                 {trafficDensity}%
                             </span>
                         </div>
+                        <div className="text-xs mt-1">
+                            Bus Passengers Delivered: <span className="font-semibold text-blue-600">{totalBusPassengers}</span>
+                        </div>
+                        <div className="text-xs mt-1">
+                            Car Passengers Delivered: <span className="font-semibold text-green-600">{totalCarPassengers}</span>
+                        </div>
+                        <div className="text-xs mt-1 font-semibold">
+                            Total Passengers: <span className="text-purple-600">{totalBusPassengers + totalCarPassengers}</span>
+                        </div>
                     </div>
                 )}
+                {/* <div className="absolute top-4 right-4" style={{ marginTop: '50px' }}>
+                    <ThroughputChart throughputHistory={throughputHistory} />
+                </div> */}
             </div>
             <div className="text-sm text-gray-600 max-w-md">
                 <p className="mb-2">

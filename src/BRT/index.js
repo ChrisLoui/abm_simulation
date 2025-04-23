@@ -26,4 +26,4 @@ export {
     ROAD_LENGTH_METERS,
     COLORS,
     CAR_COLORS
-} from './constants';
+} from './scenarioConstants';

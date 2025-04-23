@@ -53,9 +53,12 @@ npm start
 
 ## Usage
 
-1. Click the **Setup** button to initialize the simulation with the current settings.
-2. Click the **Play** button to start the movement of vehicles.
-3. Use the **Settings** button to adjust parameters like car count, bus count, and speed ranges.
+1. Click the **Setup** button to initialize the simulation with the current settings. This prepares the simulation environment but does not start any movement or vehicle generation.
+2. Click the **Play** button to begin the simulation. Only at this point will cars start to be generated and movement begin.
+3. Click the **Pause** button to temporarily stop the simulation while preserving its current state.
+4. Use the **Settings** button to adjust parameters like car spawn rate, bus count, and speed ranges.
+
+The simulation is designed to minimize resource usage - no background processing or vehicle generation occurs until you explicitly click the Play button.
 
 ## Project Structure
 

@@ -175,4 +175,10 @@ export const BUS_LENGTH_METERS = 12;
 export const BUS_WIDTH_METERS = 2.5;
 
 // Increase the visibility multiplier to make vehicles appear larger
-export const VEHICLE_VISIBILITY_FACTOR = 5.5; // Increased slightly to 5.5 to make vehicles fit lane width
+export const VEHICLE_VISIBILITY_FACTOR = 5.8; // Increased slightly to 5.5 to make vehicles fit lane width
+
+// Passenger throughput constants
+export const TICK_DURATION = 10000; // 10 seconds per tick
+export const PASSENGERS_PER_CAR = 3; // 3 passengers per car
+export const BUS_CAPACITY = 90; // Maximum bus capacity
+export const BUS_STOP_PASSENGER_RATE = 5; // Maximum passengers per second at bus stops
