@@ -23,9 +23,21 @@ export const updateThroughput = (vehicles, buses) => {
             }
 
             // Count passengers on bus when it exits the simulation (point A to B)
-            if (bus.pathPosition > 0.95 && !bus.throughputCounted) {
-                busThroughput += bus.passengers || 0;
-                bus.throughputCounted = true;
+            if (bus.pathPosition > 0.95) {
+                // Only count if we haven't counted this bus's exit yet
+                if (!bus.throughputCounted) {
+                    busThroughput += bus.passengers || 0;
+                    bus.throughputCounted = true;
+                    // Reset bus position and reactivate it
+                    bus.pathPosition = 0;
+                    bus.active = false;
+                    // Schedule reactivation after a delay
+                    setTimeout(() => {
+                        bus.active = true;
+                        bus.throughputCounted = false;
+                        bus.passengers = Math.floor(Math.random() * 21) + 70; // Reset passengers
+                    }, 10000); // 10 seconds delay before reactivating
+                }
             }
         }
     });

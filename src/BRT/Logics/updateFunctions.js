@@ -67,6 +67,20 @@ export const updateVehicles = (prevVehicles, buses, deltaTime, lanes) => {
             });
         }
 
+        // Handle bus exit and passenger counting
+        if (vehicle.type === 'bus' && vehicle.pathPosition > 0.95 && !vehicle.throughputCounted) {
+            vehicle.throughputCounted = true;
+            vehicle.throughput = vehicle.passengers || 0;
+            vehicle.pathPosition = 0;
+            vehicle.active = false;
+            // Schedule reactivation
+            setTimeout(() => {
+                vehicle.active = true;
+                vehicle.throughputCounted = false;
+                vehicle.passengers = Math.floor(Math.random() * 21) + 70; // Reset passengers
+            }, 10000); // 10 seconds delay
+        }
+
         if (vehicle.laneChangeTimer > 0) {
             vehicle.laneChangeTimer -= deltaTime;
         }

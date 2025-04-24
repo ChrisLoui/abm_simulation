@@ -230,8 +230,9 @@ const TrafficSimulation = () => {
                     });
                     throughputHistoryRef.current = [...throughputHistoryRef.current, throughputData].slice(-30);
 
-                    // Update bus passenger count
+                    // Update passenger counts from throughput data
                     setTotalBusPassengers(prev => prev + throughputData.buses);
+                    setTotalCarPassengers(prev => prev + throughputData.cars);
                 }
             }
 
@@ -262,8 +263,31 @@ const TrafficSimulation = () => {
             return updated;
         });
 
-        // Update buses
-        setBuses(prevBuses => updateBuses(prevBuses, vehicles, BUS_STOPS, CANVAS_WIDTH, deltaTime, LANES));
+        // Update buses and handle their throughput
+        setBuses(prevBuses => {
+            const updatedBuses = updateBuses(prevBuses, vehicles, BUS_STOPS, CANVAS_WIDTH, deltaTime, LANES);
+
+            // Count bus throughput when they exit
+            updatedBuses.forEach(bus => {
+                if (bus.pathPosition > 0.95 && !bus.throughputCounted) {
+                    bus.throughputCounted = true;
+                    const passengersExiting = bus.passengers || 0;
+                    bus.throughput = passengersExiting;
+                    // Add to total bus passengers count
+                    setTotalBusPassengers(prev => prev + passengersExiting);
+                    bus.pathPosition = 0;
+                    bus.active = false;
+                    // Schedule reactivation
+                    setTimeout(() => {
+                        bus.active = true;
+                        bus.throughputCounted = false;
+                        bus.passengers = Math.floor(Math.random() * 21) + 70; // Reset passengers
+                    }, 10000); // 10 seconds delay
+                }
+            });
+
+            return updatedBuses;
+        });
 
         // Render the current state
         renderSimulation(
