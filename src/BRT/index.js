@@ -11,8 +11,17 @@ export { default as SettingsPanel } from './SettingsPanel';
 // Export utility functions that might be useful elsewhere
 export {
     initializeBuses,
-    updateVehiclePositions
-} from './vehicleLogic';
+    updateBuses,
+} from './Logics/busLogics';
+export {
+    createCar,
+} from './Logics/carLogics';
+export {
+    updateThroughput
+} from './Logics/updateThroughput';
+export {
+    updateVehicles
+} from './Logics/updateFunctions';
 
 export {
     renderCanvas,

@@ -1,6 +1,6 @@
 // Canvas dimensions - landscape orientation with longer road
 export const CANVAS_WIDTH = 5000;  // Much wider than before
-export const CANVAS_HEIGHT = 800;  // Taller for better proportions
+export const CANVAS_HEIGHT = 1000;  // Taller for better proportions
 
 // Road length in meters (2.6km = 2600m)
 export const ROAD_LENGTH_METERS = 2600;
@@ -175,10 +175,42 @@ export const BUS_LENGTH_METERS = 12;
 export const BUS_WIDTH_METERS = 2.5;
 
 // Increase the visibility multiplier to make vehicles appear larger
-export const VEHICLE_VISIBILITY_FACTOR = 5.8; // Increased slightly to 5.5 to make vehicles fit lane width
+export const VEHICLE_VISIBILITY_FACTOR = 6.0; // Increased slightly to 5.5 to make vehicles fit lane width
 
 // Passenger throughput constants
 export const TICK_DURATION = 10000; // 10 seconds per tick
 export const PASSENGERS_PER_CAR = 3; // 3 passengers per car
 export const BUS_CAPACITY = 90; // Maximum bus capacity
 export const BUS_STOP_PASSENGER_RATE = 5; // Maximum passengers per second at bus stops
+
+// Background image path
+export const BACKGROUND_IMAGE_PATH = './BRT.png';
+
+// Vehicle behavior types
+export const BEHAVIOR_TYPES = {
+    POLITE: 'polite',
+    NEUTRAL: 'neutral',
+    AGGRESSIVE: 'aggressive'
+};
+
+// Vehicle behavior parameters
+export const BEHAVIOR_PARAMS = {
+    [BEHAVIOR_TYPES.POLITE]: {
+        laneChangeFrequency: 0.05,
+        safeDistance: 0.1,
+        speedAdjustment: 0.85,
+        laneChangeCooldown: 6000
+    },
+    [BEHAVIOR_TYPES.NEUTRAL]: {
+        laneChangeFrequency: 0.3,
+        safeDistance: 0.06,
+        speedAdjustment: 0.95,
+        laneChangeCooldown: 4000
+    },
+    [BEHAVIOR_TYPES.AGGRESSIVE]: {
+        laneChangeFrequency: 0.6,
+        safeDistance: 0.04,
+        speedAdjustment: 1.1,
+        laneChangeCooldown: 3000
+    }
+};

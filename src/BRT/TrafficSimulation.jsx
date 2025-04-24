@@ -8,12 +8,18 @@ import {
     LANES
 } from './constants';
 import {
-    createCar,
     initializeBuses,
-    updateVehicles,
     updateBuses,
+} from './Logics/busLogics';
+import {
+    createCar,
+} from './Logics/carLogics';
+import {
     updateThroughput
-} from './vehicleLogic';
+} from './Logics/updateThroughput';
+import {
+    updateVehicles
+} from './Logics/updateFunctions';
 import { renderCanvas, renderSimulation } from './renderLogic';
 import SettingsPanel from './SettingsPanel';
 import ThroughputChart from './ThroughputChart';
@@ -131,21 +137,39 @@ const TrafficSimulation = () => {
         // Start with an empty vehicles array for dynamic car spawner.
         setVehicles([]);
 
-        // Calculate spawn interval based on current settings
-        const spawnInterval = 60000 / settings.carsPerMinute;
-
         // Start the car spawner with current settings
         carSpawnerIntervalRef.current = setInterval(() => {
-            const newCar = createCar(settings, LANES, scaleFactor);
-
             setVehicles(prevVehicles => {
-                // Check if prevVehicles is defined before using .length
-                if (!prevVehicles) return [newCar];
+                if (!prevVehicles) return [];
 
-                // Add the new car without any density checks
-                return [...prevVehicles, newCar];
+                // Calculate traffic density (number of cars per lane)
+                const laneDensity = {
+                    1: prevVehicles.filter(v => v.lane === 1).length,
+                    2: prevVehicles.filter(v => v.lane === 2).length
+                };
+
+                // Calculate maximum allowed cars per lane based on settings
+                const maxCarsPerLane = Math.floor(settings.carsPerMinute / 2);
+
+                // Calculate spawn probability based on traffic density
+                const densityFactor1 = 1 - (laneDensity[1] / maxCarsPerLane);
+                const densityFactor2 = 1 - (laneDensity[2] / maxCarsPerLane);
+
+                // Only spawn new car if there's room in at least one lane
+                if (densityFactor1 > 0 || densityFactor2 > 0) {
+                    const newCar = createCar(settings, LANES, scaleFactor);
+
+                    // Adjust spawn probability based on lane density
+                    const spawnProbability = newCar.lane === 1 ? densityFactor1 : densityFactor2;
+
+                    if (Math.random() < spawnProbability) {
+                        return [...prevVehicles, newCar];
+                    }
+                }
+
+                return prevVehicles;
             });
-        }, spawnInterval);
+        }, 1000); // Check every second instead of fixed interval
 
         setDriverStats({ polite: 0, neutral: 0, aggressive: 0 });
         setIsSetup(true);

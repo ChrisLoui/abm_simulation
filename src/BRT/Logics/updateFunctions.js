@@ -1,285 +1,7 @@
 import {
-    CAR_COLORS,
-    CAR_LENGTH_METERS,
-    CAR_WIDTH_METERS,
-    BUS_LENGTH_METERS,
-    BUS_WIDTH_METERS,
-    VEHICLE_VISIBILITY_FACTOR
-} from './constants';
-
-// Define behavior types for cars
-const BEHAVIOR_TYPES = {
-    POLITE: 'polite',      // Rarely changes lanes, very cautious
-    NEUTRAL: 'neutral',    // Changes lanes when necessary
-    AGGRESSIVE: 'aggressive' // Frequently changes lanes when possible
-};
-
-/* ------------------------------ CAR SPAWNING ------------------------------ */
-
-/**
- * Creates a new car object using the same settings as before.
- * New cars are spawned at the left side of the road (pathPosition = 0).
- */
-export const createCar = (settings, lanes, scaleFactor) => {
-    // Cars choose randomly between lane 1 and 2.
-    const laneIndex = 1 + Math.floor(Math.random() * 2);
-
-    // Convert speed to match simulation timing
-    // Real time: 3.12 minutes (187 seconds) for 2.6km at 50 km/h
-    // Simulation time: 30 seconds for 2.6km
-    // Speed factor = 187/30 = 6.23
-    const baseSpeed = (1 / 30) * 6.23; // One full loop takes 30 seconds in simulation time
-
-    // More realistic speed variations
-    const speedVariation = Math.random() * 0.3 + 0.85; // 85-115% of base speed
-    const speed = baseSpeed * speedVariation;
-
-    const color = CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)];
-
-    // Adjust behavior type probabilities for more realistic distribution
-    const behaviorTypes = [BEHAVIOR_TYPES.POLITE, BEHAVIOR_TYPES.NEUTRAL, BEHAVIOR_TYPES.AGGRESSIVE];
-    const behaviorProbabilities = [0.3, 0.5, 0.2]; // 30% polite, 50% neutral, 20% aggressive
-    const random = Math.random();
-    let behaviorType;
-
-    if (random < behaviorProbabilities[0]) {
-        behaviorType = behaviorTypes[0]; // Polite
-    } else if (random < behaviorProbabilities[0] + behaviorProbabilities[1]) {
-        behaviorType = behaviorTypes[1]; // Neutral
-    } else {
-        behaviorType = behaviorTypes[2]; // Aggressive
-    }
-
-    let laneChangeFrequency, safeDistance, speedAdjustment, laneChangeCooldown;
-    switch (behaviorType) {
-        case BEHAVIOR_TYPES.POLITE:
-            laneChangeFrequency = 0.05;  // Very low chance to change lanes
-            safeDistance = 0.1;         // Larger safety distance
-            speedAdjustment = 0.85;     // Slightly slower speed
-            laneChangeCooldown = 6000;  // Longer cooldown between lane changes
-            break;
-        case BEHAVIOR_TYPES.NEUTRAL:
-            laneChangeFrequency = 0.3;   // Moderate chance to change lanes
-            safeDistance = 0.06;         // Moderate safety distance
-            speedAdjustment = 0.95;      // Slightly slower speed
-            laneChangeCooldown = 4000;   // Moderate cooldown
-            break;
-        case BEHAVIOR_TYPES.AGGRESSIVE:
-            laneChangeFrequency = 0.6;   // High chance to change lanes
-            safeDistance = 0.04;         // Smaller safety distance
-            speedAdjustment = 1.1;       // Slightly faster speed
-            laneChangeCooldown = 3000;   // Short cooldown
-            break;
-        default:
-            laneChangeFrequency = 0.3;
-            safeDistance = 0.06;
-            speedAdjustment = 0.95;
-            laneChangeCooldown = 4000;
-    }
-
-    return {
-        type: 'car',
-        pathPosition: 0,
-        lane: laneIndex,
-        direction: 'right',
-        speed: speed * speedAdjustment,
-        color,
-        width: CAR_LENGTH_METERS * scaleFactor * VEHICLE_VISIBILITY_FACTOR,
-        height: CAR_WIDTH_METERS * scaleFactor * VEHICLE_VISIBILITY_FACTOR,
-        waiting: false,
-        stoppedAtBusStop: false,
-        x: 0,
-        y: 0,
-        initialPositioning: true,
-        behaviorType: behaviorType,
-        laneChangeFrequency: laneChangeFrequency,
-        safeDistance: safeDistance,
-        laneChangeTimer: 0,
-        preferredLane: laneIndex,
-        targetLane: laneIndex,
-        laneChangeProgress: 1.0,
-        laneChangeDuration: behaviorType === BEHAVIOR_TYPES.AGGRESSIVE ? 1500 :
-            behaviorType === BEHAVIOR_TYPES.NEUTRAL ? 2500 : 3500,
-        laneChangeCooldown: laneChangeCooldown,
-        lastLaneChangeTime: 0,
-        passengers: 3,
-        throughput: 0,
-        stuckTimer: 0,
-        lastSpeed: speed * speedAdjustment,
-        acceleration: 0,
-        desiredSpeed: speed * speedAdjustment
-    };
-};
-
-/* ------------------------------ BUS SCHEDULING ------------------------------ */
-
-/**
- * Initialize bus vehicles with proper properties and schedule them.
- * At simulation start, only one bus is active (pathPosition = 0).
- * Subsequent buses are created off-screen and activated on schedule.
- */
-export const initializeBuses = (settings, lanes, scaleFactor) => {
-    const buses = [];
-    // Set bus frequency to match 3-minute intervals in real time
-    // 3 minutes real time = 10 seconds simulation time
-    const busScheduleInterval = 10000; // 10 seconds between buses
-
-    // Create the first bus and activate it immediately
-    buses.push(createBus(0, 0, settings, scaleFactor, true));
-
-    // Create remaining buses as inactive and schedule their activation
-    for (let i = 1; i < settings.busCount; i++) {
-        buses.push(createBus(i, -0.1, settings, scaleFactor, false));
-        setTimeout(() => {
-            if (buses[i]) {
-                buses[i].active = true;
-                buses[i].pathPosition = 0;
-            }
-        }, i * busScheduleInterval);
-    }
-
-    return buses;
-};
-
-/**
- * Create a single bus with appropriate properties.
- * @param {Number} index - Bus index.
- * @param {Number} pathPosition - Initial path position.
- * @param {Object} settings - Simulation settings.
- * @param {Number} scaleFactor - Scale factor for dimensions.
- * @param {Boolean} active - Whether this bus is active immediately.
- */
-const createBus = (index, pathPosition, settings, scaleFactor, active = true) => {
-    const laneIndex = 0; // Buses use lane 0
-
-    // Calculate bus speed for 2.6km in 3 minutes (adjusted for simulation time)
-    // Real speed: 2.6km/3min = 14.44 m/s
-    // Simulation runs 18x faster (3min = 10s), so adjust speed accordingly
-    const baseSpeed = 14.44 * (10 / 180); // Convert to simulation speed
-    const speed = baseSpeed * scaleFactor; // Adjust for canvas scale
-
-    return {
-        type: 'bus',
-        pathPosition: pathPosition,
-        lane: laneIndex,
-        direction: 'right',
-        speed,
-        color: '#219ebc',
-        width: BUS_LENGTH_METERS * scaleFactor * VEHICLE_VISIBILITY_FACTOR,
-        height: BUS_WIDTH_METERS * scaleFactor * VEHICLE_VISIBILITY_FACTOR,
-        waiting: false,
-        stoppedAtBusStop: -1,
-        stopTime: 0,
-        x: 0,
-        y: 0,
-        initialPositioning: true,
-        active: active,
-        passengers: Math.floor(Math.random() * 21) + 70, // Random passengers between 70-90
-        capacity: 90,
-        lastVisitedStop: -1,
-        justLeftStop: false,
-        busId: index + 1,
-        throughput: 0 // Track passengers moved from A to B
-    };
-};
-
-/* ------------------------------ UTILITY FUNCTIONS ------------------------------ */
-
-/**
- * Ease in-out cubic easing function.
- */
-const easeInOutCubic = (t) => {
-    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-};
-
-/**
- * Update positions of vehicles (both cars and buses) based on their pathPosition.
- */
-export const updateVehiclePositions = (vehicleList, lanes) => {
-    vehicleList.forEach(vehicle => {
-        if (vehicle.type === 'car' && vehicle.laneChangeProgress < 1.0) {
-            const fromLane = lanes[vehicle.lane];
-            const toLane = lanes[vehicle.targetLane];
-            const fromPos = getPositionOnPath(fromLane.points, vehicle.pathPosition);
-            const toPos = getPositionOnPath(toLane.points, vehicle.pathPosition);
-            const t = 1 - vehicle.laneChangeProgress;
-            const easedT = easeInOutCubic(t);
-
-            vehicle.x = fromPos.x + (toPos.x - fromPos.x) * easedT;
-            const directY = fromPos.y + (toPos.y - fromPos.y) * easedT;
-            const arcHeight = Math.abs(toPos.y - fromPos.y) * 0.2;
-            const arcEffect = Math.sin(easedT * Math.PI) * arcHeight;
-            vehicle.y = directY + arcEffect;
-
-            const fromDir = getDirectionOnPath(fromLane.points, vehicle.pathPosition);
-            const toDir = getDirectionOnPath(toLane.points, vehicle.pathPosition);
-            const fromAngle = Math.atan2(fromDir.y, fromDir.x);
-            const toAngle = Math.atan2(toDir.y, toDir.x);
-            let angleDiff = toAngle - fromAngle;
-            if (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-            if (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-            vehicle.angle = fromAngle + angleDiff * easedT;
-        } else {
-            const lane = lanes[vehicle.lane];
-            const position = getPositionOnPath(lane.points, vehicle.pathPosition);
-            const direction = getDirectionOnPath(lane.points, vehicle.pathPosition);
-            vehicle.x = position.x;
-            vehicle.y = position.y;
-            if (vehicle.initialPositioning) {
-                vehicle.y = position.y;
-                vehicle.initialPositioning = false;
-            }
-            vehicle.angle = Math.atan2(direction.y, direction.x);
-        }
-    });
-};
-
-/**
- * Get position on a path using Catmull-Rom spline interpolation.
- */
-export const getPositionOnPath = (points, t) => {
-    t = Math.max(0, Math.min(1, t));
-    const numSegments = points.length - 1;
-    const segmentT = t * numSegments;
-    const segmentIndex = Math.floor(segmentT);
-    const segmentFraction = segmentT - segmentIndex;
-    const p0 = points[Math.max(0, segmentIndex - 1)];
-    const p1 = points[Math.min(segmentIndex, points.length - 1)];
-    const p2 = points[Math.min(segmentIndex + 1, points.length - 1)];
-    const p3 = points[Math.min(segmentIndex + 2, points.length - 1)];
-    return catmullRomInterpolation(p0, p1, p2, p3, segmentFraction);
-};
-
-const catmullRomInterpolation = (p0, p1, p2, p3, t) => {
-    const t2 = t * t;
-    const t3 = t2 * t;
-    const x = 0.5 * (
-        (2 * p1.x) +
-        (-p0.x + p2.x) * t +
-        (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
-        (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3
-    );
-    const y = 0.5 * (
-        (2 * p1.y) +
-        (-p0.y + p2.y) * t +
-        (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 +
-        (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3
-    );
-    return { x, y };
-};
-
-/**
- * Get a direction vector from a set of path points.
- */
-export const getDirectionOnPath = (points, t) => {
-    const epsilon = 0.001;
-    const posAhead = getPositionOnPath(points, t + epsilon);
-    const posBehind = getPositionOnPath(points, t - epsilon);
-    return {
-        x: posAhead.x - posBehind.x,
-        y: posAhead.y - posBehind.y
-    };
-};
+    getPositionOnPath,
+    updateVehiclePositions
+} from './utilitiFuntions';
 
 /* ------------------------------ UPDATE FUNCTIONS ------------------------------ */
 
@@ -296,6 +18,15 @@ export const updateVehicles = (prevVehicles, buses, deltaTime, lanes) => {
     const changingLaneVehicles = updatedVehicles.filter(v =>
         v.type === 'car' && v.laneChangeProgress < 1.0
     );
+
+    // Create a map of vehicles that are changing into each lane
+    const vehiclesChangingIntoLane = {};
+    changingLaneVehicles.forEach(vehicle => {
+        if (!vehiclesChangingIntoLane[vehicle.targetLane]) {
+            vehiclesChangingIntoLane[vehicle.targetLane] = [];
+        }
+        vehiclesChangingIntoLane[vehicle.targetLane].push(vehicle);
+    });
 
     // Group vehicles by their current lane and position
     const laneGroups = {};
@@ -315,6 +46,26 @@ export const updateVehicles = (prevVehicles, buses, deltaTime, lanes) => {
         let vehicleAheadDistance = 1.0;
         let vehicleBehindDistance = 1.0;
         let vehicleAhead = null;
+
+        // Check if any vehicle is changing into this vehicle's lane
+        if (vehiclesChangingIntoLane[vehicle.lane]) {
+            vehiclesChangingIntoLane[vehicle.lane].forEach(changingVehicle => {
+                // Calculate distance to the changing vehicle
+                let dist = changingVehicle.pathPosition - vehicle.pathPosition;
+                if (dist < 0) dist += 1;
+
+                // If the changing vehicle is ahead and close, slow down
+                if (dist > 0 && dist < 0.1) {
+                    // Calculate deceleration based on distance and behavior
+                    const decelerationFactor = vehicle.behaviorType === 'aggressive' ? 0.7 :
+                        vehicle.behaviorType === 'neutral' ? 0.5 : 0.3;
+
+                    // Apply deceleration
+                    vehicle.speed = Math.max(0, vehicle.speed * (1 - decelerationFactor * (1 - dist / 0.1)));
+                    shouldWait = true;
+                }
+            });
+        }
 
         if (vehicle.laneChangeTimer > 0) {
             vehicle.laneChangeTimer -= deltaTime;
@@ -785,192 +536,5 @@ const analyzeTrafficAhead = (car, vehicles, lookAheadDistance, specificLane = nu
         averageSpeed: averageSpeed,
         nearestVehicleDistance: nearestVehicleDistance,
         vehicles: vehiclesAhead
-    };
-};
-
-/* ------------------------------ BUS UPDATE ------------------------------ */
-
-/**
- * Update buses for each animation frame.
- */
-export const updateBuses = (prevBuses, vehicles, busStops, canvasWidth, deltaTime, lanes) => {
-    const updatedBuses = [...prevBuses];
-
-    // Initialize bus stops if needed
-    busStops.forEach(stop => {
-        if (!stop.lastUpdateTime) {
-            stop.lastUpdateTime = Date.now();
-            stop.waitingPassengers = 0;
-        }
-    });
-
-    // Update passenger waiting at stations
-    const currentTime = Date.now();
-    busStops.forEach(stop => {
-        const timeDiff = (currentTime - stop.lastUpdateTime) / 1000; // Convert to seconds
-
-        if (timeDiff >= 1) {
-            // Add 0-5 passengers per second, but don't exceed 20
-            const newPassengers = Math.floor(Math.random() * 6);
-            stop.waitingPassengers = Math.min(stop.waitingPassengers + newPassengers, 20);
-            stop.lastUpdateTime = currentTime;
-        }
-    });
-
-    updatedBuses.forEach(bus => {
-        if (!bus.active) return;
-
-        if (bus.stoppedAtBusStop >= 0) {
-            bus.stopTime += deltaTime;
-            const currentStop = busStops[bus.stoppedAtBusStop];
-
-            // Calculate base stop time based on passenger operations
-            const passengersToDrop = Math.min(bus.passengers, Math.floor(Math.random() * 10) + 5);
-            const waitingPassengers = currentStop.waitingPassengers || 0;
-            const availableSpace = bus.capacity - bus.passengers;
-            const passengersToPickUp = Math.min(waitingPassengers, availableSpace);
-
-            // Very fast stop time calculation (0.1 seconds per passenger)
-            const baseStopTime = 200 + (passengersToDrop + passengersToPickUp) * 100;
-
-            // If we've been stopped long enough
-            if (bus.stopTime >= baseStopTime) {
-                // Drop off passengers
-                bus.passengers -= passengersToDrop;
-                bus.passengersDroppedOff = (bus.passengersDroppedOff || 0) + passengersToDrop;
-
-                // Pick up waiting passengers
-                bus.passengers += passengersToPickUp;
-                currentStop.waitingPassengers = Math.max(0, waitingPassengers - passengersToPickUp);
-
-                bus.stoppedAtBusStop = -1;
-                bus.stopTime = 0;
-                bus.justLeftStop = true;
-            }
-        } else {
-            busStops.forEach((stop, stopIndex) => {
-                if (stopIndex === bus.lastVisitedStop || bus.justLeftStop) return;
-
-                const busPos = bus.x;
-                const stopPos = stop.x;
-                const stoppingDistance = bus.width * 0.15;
-                const isApproachingFromLeft = busPos < stopPos && (stopPos - busPos) < stoppingDistance;
-
-                if (isApproachingFromLeft) {
-                    const busLane = lanes[bus.lane];
-                    const laneY = getPositionOnPath(busLane.points, bus.pathPosition).y;
-
-                    if (Math.abs(laneY - stop.y) < bus.height) {
-                        // Only stop if bus is not full or there are passengers waiting
-                        if (bus.passengers < bus.capacity || stop.waitingPassengers > 0) {
-                            bus.stoppedAtBusStop = stopIndex;
-                            // Initial stop time will be updated based on passenger count
-                            bus.stopTime = 0;
-                            bus.waiting = true;
-                        }
-                    }
-                }
-            });
-
-            if (bus.pathPosition < 0.05 && bus.lastVisitedStop !== -1) {
-                bus.lastVisitedStop = -1;
-            }
-
-            let shouldWait = false;
-            let vehicleAheadDistance = 1.0;
-            let obstacleDetected = false;
-            [...updatedBuses, ...vehicles].forEach(otherVehicle => {
-                if (!otherVehicle.active && otherVehicle.type === 'bus') return;
-                if (bus !== otherVehicle && bus.lane === otherVehicle.lane) {
-                    let distAhead = otherVehicle.pathPosition - bus.pathPosition;
-                    if (distAhead < 0) distAhead += 1;
-                    if (distAhead > 0 && distAhead < vehicleAheadDistance) {
-                        vehicleAheadDistance = distAhead;
-                    }
-                    if (distAhead > 0 && distAhead < 0.08) {
-                        obstacleDetected = true;
-                        if (distAhead < 0.03) {
-                            shouldWait = true;
-                        }
-                    }
-                }
-            });
-            if (bus.stoppedAtBusStop === -1) {
-                bus.waiting = shouldWait;
-            }
-            if (!bus.waiting) {
-                let speedFactor = 0.00005 * (5000 / 2600);
-                if (vehicleAheadDistance < 0.15) {
-                    speedFactor *= Math.min(vehicleAheadDistance * 10, 0.8);
-                }
-                bus.pathPosition += bus.speed * speedFactor * deltaTime;
-                if (bus.pathPosition > 1) {
-                    bus.pathPosition = 0;
-                    bus.lastVisitedStop = -1;
-                }
-            }
-        }
-    });
-
-    updateVehiclePositions(updatedBuses.filter(bus => bus.active), lanes);
-
-    updatedBuses.forEach(bus => {
-        if (!bus.active) return;
-        if (bus.stoppedAtBusStop < 0) {
-            const lane = lanes[bus.lane];
-            const lanePosition = getPositionOnPath(lane.points, bus.pathPosition);
-            const offsetY = bus.y - lanePosition.y;
-            const edgeFactor = (bus.pathPosition < 0.05 || bus.pathPosition > 0.95) ? 0.5 : 0.2;
-            if (Math.abs(offsetY) > 2) {
-                bus.y -= offsetY * edgeFactor;
-            }
-        }
-    });
-
-    return updatedBuses;
-};
-
-/* ------------------------------ EXPORTS ------------------------------ */
-
-// Add throughput tracking function
-export const updateThroughput = (vehicles, buses) => {
-    let carThroughput = 0;
-    let busThroughput = 0;
-
-    // Count car throughput (3 passengers per car that completes a full loop)
-    vehicles.forEach(vehicle => {
-        if (vehicle.type === 'car' && vehicle.pathPosition > 0.95) {
-            carThroughput += 3; // Each car has exactly 3 passengers
-            vehicle.pathPosition = 0; // Reset position to start
-        }
-    });
-
-    // Count bus throughput (passengers dropped off + passengers on bus when it exits)
-    buses.forEach(bus => {
-        if (bus.active) {
-            // Count passengers dropped off at stations
-            if (bus.justLeftStop) {
-                const passengersDroppedOff = bus.passengersDroppedOff || 0;
-                busThroughput += passengersDroppedOff;
-                bus.passengersDroppedOff = 0; // Reset after counting
-                bus.justLeftStop = false;
-            }
-
-            // Count passengers on bus when it exits the simulation (point A to B)
-            if (bus.pathPosition > 0.95 && !bus.throughputCounted) {
-                busThroughput += bus.passengers || 0;
-                bus.throughputCounted = true;
-            }
-        }
-    });
-
-    const totalPassengers = carThroughput + busThroughput;
-
-    // Always return an object with all required properties
-    return {
-        cars: carThroughput,
-        buses: busThroughput,
-        totalPassengers: totalPassengers,
-        timestamp: Date.now()
     };
 };
