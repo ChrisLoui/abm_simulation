@@ -7,48 +7,48 @@ export const ROAD_LENGTH_METERS = 2600;
 
 // Define bus stop positions - for longer landscape orientation
 export const BUS_STOPS = [
-    { x: 750, y: 150, radius: 40 },     // First bus stop - adjusted y to match bus lane
-    { x: 1750, y: 150, radius: 40 },    // Second bus stop - adjusted y to match bus lane
-    { x: 2800, y: 140, radius: 40 },    // Third bus stop - adjusted y to match bus lane
-    { x: 3900, y: 120, radius: 40 }     // Fourth bus stop - adjusted y to match bus lane
+    { x: 250, y: 250, radius: 40, pathPosition: 0.15 },     // First bus stop
+    { x: 1550, y: 300, radius: 40, pathPosition: 0.35 },    // Second bus stop
+    { x: 2500, y: 270, radius: 40, pathPosition: 0.55 },    // Third bus stop
+    { x: 3500, y: 240, radius: 40, pathPosition: 0.75 }     // Fourth bus stop
 ];
 
 // THINNER LANES - reduced spacing between lanes to make them appear to fit only one car
 export const LANES = [
     {
         name: 'busLane', points: [
-            { x: 20, y: 180 },           // Left (start)
-            { x: 800, y: 150 },
-            { x: 1650, y: 150 },
-            { x: 2500, y: 150 },
-            { x: 3100, y: 140 },
-            { x: 3800, y: 120 },
-            { x: 4400, y: 90 },
-            { x: 4800, y: 70 }          // Right (end)
+            { x: 20, y: 200 },
+            { x: 800, y: 330 },
+            { x: 1650, y: 290 },
+            { x: 2500, y: 260 },
+            { x: 3100, y: 250 },
+            { x: 3800, y: 250 },
+            { x: 4400, y: 490 },
+            { x: 4800, y: 640 }        // Right (end)
         ]
     },
     {
         name: 'regularLane1', points: [
-            { x: 20, y: 280 },           // Left (start) - moved up from 350 to 250
-            { x: 800, y: 250 },
-            { x: 1650, y: 270 },
-            { x: 2500, y: 270 },
-            { x: 3100, y: 250 },
-            { x: 3800, y: 230 },
-            { x: 4400, y: 210 },
-            { x: 4800, y: 190 }         // Right (end)
+            { x: 20, y: 290 },           // Left (start) - 100px below bus lane
+            { x: 800, y: 440 },
+            { x: 1650, y: 390 },
+            { x: 2500, y: 370 },
+            { x: 3100, y: 360 },
+            { x: 3800, y: 360 },
+            { x: 4400, y: 610 },
+            { x: 4800, y: 740 }        // Right (end) - maintaining 120px spacing
         ]
     },
     {
         name: 'regularLane2', points: [
-            { x: 20, y: 350 },           // Left (start) - moved up from 550 to 350
-            { x: 800, y: 350 },
-            { x: 1650, y: 350 },
-            { x: 2500, y: 350 },
-            { x: 3100, y: 340 },
-            { x: 3800, y: 320 },
-            { x: 4400, y: 290 },
-            { x: 4800, y: 270 }         // Right (end)
+            { x: 20, y: 380 },           // Left (start) - 100px below lane 1
+            { x: 800, y: 530 },
+            { x: 1650, y: 510 },
+            { x: 2500, y: 510 },
+            { x: 3100, y: 510 },
+            { x: 3800, y: 510 },
+            { x: 4400, y: 710 },
+            { x: 4800, y: 860 }         // Right (end) - maintaining 100px spacing
         ]
     }
 ];
@@ -56,90 +56,90 @@ export const LANES = [
 // Road path coordinates for rendering - adjusted for thinner lanes
 export const ROAD_MAIN_PATH = [
     { x: 0, y: 200 },               // Top-left corner - moved from 250 to 200
-    { x: 0, y: 400 },               // Bottom-left corner - moved from 650 to 400
-    { x: 800, y: 380 },
-    { x: 1650, y: 400 },
-    { x: 2500, y: 400 },
-    { x: 3100, y: 390 },
-    { x: 3800, y: 370 },
-    { x: 4400, y: 340 },
-    { x: 4800, y: 320 },             // Bottom-right corner
-    { x: 4800, y: 70 },              // Top-right corner
-    { x: 4400, y: 90 },
-    { x: 3800, y: 120 },
-    { x: 3100, y: 140 },
-    { x: 2500, y: 150 },
-    { x: 1650, y: 150 },
-    { x: 800, y: 150 },
+    { x: 0, y: 420 },               // Bottom-left corner - moved from 650 to 400
+    { x: 800, y: 580 },
+    { x: 1650, y: 550 },
+    { x: 2500, y: 550 },
+    { x: 3100, y: 550 },
+    { x: 3800, y: 550 },
+    { x: 4400, y: 770 },
+    { x: 4800, y: 900 },            // Bottom-right corner
+    { x: 4800, y: 600 },
+    { x: 4400, y: 450 },
+    { x: 3800, y: 190 },
+    { x: 3100, y: 200 },
+    { x: 2500, y: 230 },
+    { x: 1650, y: 250 },
+    { x: 800, y: 300 },
     { x: 0, y: 200 }                // Back to top-left
 ];
 
 // Bus lane path coordinates for rendering - adjusted for thinner lanes
 export const BUS_LANE_PATH = [
     { x: 0, y: 250 },               // Moved from 350 to 250
-    { x: 800, y: 210 },
-    { x: 1650, y: 230 },
+    { x: 800, y: 400 },
+    { x: 1650, y: 350 },
+    { x: 2500, y: 330 },
+    { x: 3100, y: 320 },
+    { x: 3800, y: 300 },
+    { x: 4400, y: 570 },
+    { x: 4800, y: 700 },
+    { x: 4800, y: 600 },
+    { x: 4400, y: 450 },
+    { x: 3800, y: 190 },
+    { x: 3100, y: 200 },
     { x: 2500, y: 230 },
-    { x: 3100, y: 220 },
-    { x: 3800, y: 200 },
-    { x: 4400, y: 170 },
-    { x: 4800, y: 150 },
-    { x: 4800, y: 10 },
-    { x: 4400, y: 40 },
-    { x: 3800, y: 70 },
-    { x: 3100, y: 90 },
-    { x: 2500, y: 100 },
-    { x: 1650, y: 100 },
-    { x: 800, y: 100 },
+    { x: 1650, y: 250 },
+    { x: 800, y: 300 },
     { x: 0, y: 150 }
 ];
 
 // First lane divider (between bus lane and regular lane) - adjusted for thinner lanes
 export const FIRST_LANE_DIVIDER = [
     { x: 0, y: 250 },              // Moved from 350 to 250
-    { x: 800, y: 210 },
-    { x: 1650, y: 230 },
-    { x: 2500, y: 230 },
-    { x: 3100, y: 220 },
-    { x: 3800, y: 200 },
-    { x: 4400, y: 170 },
-    { x: 4800, y: 150 }
+    { x: 800, y: 400 },
+    { x: 1650, y: 350 },
+    { x: 2500, y: 330 },
+    { x: 3100, y: 320 },
+    { x: 3800, y: 300 },
+    { x: 4400, y: 570 },
+    { x: 4800, y: 700 }
 ];
 
 // Second lane divider (between regular lanes) - adjusted for thinner lanes
 export const SECOND_LANE_DIVIDER = [
-    { x: 0, y: 320 },              // Moved from 470 to 350
-    { x: 800, y: 290 },
-    { x: 1650, y: 310 },
-    { x: 2500, y: 320 },
-    { x: 3100, y: 310 },
-    { x: 3800, y: 290 },
-    { x: 4400, y: 260 },
-    { x: 4800, y: 230 }
+    { x: 0, y: 330 },              // Moved from 470 to 350
+    { x: 800, y: 500 },
+    { x: 1650, y: 450 },
+    { x: 2500, y: 440 },
+    { x: 3100, y: 430 },
+    { x: 3800, y: 410 },
+    { x: 4400, y: 660 },
+    { x: 4800, y: 800 }
 ];
 
 // Left edge of the road - adjusted for thinner lanes
 export const LEFT_EDGE = [
     { x: 0, y: 150 },
-    { x: 800, y: 100 },
-    { x: 1650, y: 100 },
-    { x: 2500, y: 100 },
-    { x: 3100, y: 90 },
-    { x: 3800, y: 70 },
-    { x: 4400, y: 40 },
-    { x: 4800, y: 10 }
+    { x: 800, y: 300 },
+    { x: 1650, y: 250 },
+    { x: 2500, y: 230 },
+    { x: 3100, y: 200 },
+    { x: 3800, y: 190 },
+    { x: 4400, y: 450 },
+    { x: 4800, y: 600 }
 ];
 
 // Right edge of the road - adjusted for thinner lanes
 export const RIGHT_EDGE = [
-    { x: 0, y: 400 },              // Moved from 650 to 400
-    { x: 800, y: 380 },
-    { x: 1650, y: 400 },
-    { x: 2500, y: 400 },
-    { x: 3100, y: 390 },
-    { x: 3800, y: 370 },
-    { x: 4400, y: 340 },
-    { x: 4800, y: 320 }
+    { x: 0, y: 420 },              // Moved from 650 to 400
+    { x: 800, y: 580 },
+    { x: 1650, y: 550 },
+    { x: 2500, y: 550 },
+    { x: 3100, y: 550 },
+    { x: 3800, y: 550 },
+    { x: 4400, y: 770 },
+    { x: 4800, y: 900 }
 ];
 
 // Colors

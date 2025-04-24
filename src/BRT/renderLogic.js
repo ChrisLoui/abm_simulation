@@ -203,15 +203,37 @@ const drawCar = (ctx, vehicle, cornerRadius) => {
     ctx.beginPath();
     ctx.arc(headlightX, vehicle.height / 3, headlightSize / 2, 0, Math.PI * 2);
     ctx.fill();
-    if (vehicle.waiting) {
-        ctx.fillStyle = COLORS.BRAKE_LIGHTS;
-        const tailLightX = -vehicle.width / 2 + headlightSize;
+
+    // Add brake lights
+    const tailLightSize = vehicle.height / 4;
+    const tailLightX = -vehicle.width / 2 + tailLightSize;
+
+    // Check if car is slowing down or stopped
+    const isBraking = vehicle.waiting ||
+        (vehicle.lastSpeed && vehicle.speed < vehicle.lastSpeed * 0.8) ||
+        vehicle.speed < 0.1;
+
+    // Draw brake lights
+    ctx.fillStyle = isBraking ? '#FF0000' : '#660000'; // Bright red when braking, dark red when not
+    ctx.beginPath();
+    ctx.arc(tailLightX, -vehicle.height / 3, tailLightSize / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(tailLightX, vehicle.height / 3, tailLightSize / 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Add glow effect when braking
+    if (isBraking) {
+        ctx.save();
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = '#FF0000';
         ctx.beginPath();
-        ctx.arc(tailLightX, -vehicle.height / 3, headlightSize / 2, 0, Math.PI * 2);
+        ctx.arc(tailLightX, -vehicle.height / 3, tailLightSize, 0, Math.PI * 2);
         ctx.fill();
         ctx.beginPath();
-        ctx.arc(tailLightX, vehicle.height / 3, headlightSize / 2, 0, Math.PI * 2);
+        ctx.arc(tailLightX, vehicle.height / 3, tailLightSize, 0, Math.PI * 2);
         ctx.fill();
+        ctx.restore();
     }
 };
 
