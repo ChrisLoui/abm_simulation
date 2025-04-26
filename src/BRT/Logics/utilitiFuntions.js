@@ -53,15 +53,34 @@ export const updateVehiclePositions = (vehicleList, lanes) => {
  * Get position on a path using Catmull-Rom spline interpolation.
  */
 export const getPositionOnPath = (points, t) => {
+    // Safety checks for points array
+    if (!points || points.length < 2) {
+        console.warn('Invalid path points array:', points);
+        return { x: 0, y: 0 };
+    }
+
     t = Math.max(0, Math.min(1, t));
     const numSegments = points.length - 1;
     const segmentT = t * numSegments;
     const segmentIndex = Math.floor(segmentT);
     const segmentFraction = segmentT - segmentIndex;
-    const p0 = points[Math.max(0, segmentIndex - 1)];
-    const p1 = points[Math.min(segmentIndex, points.length - 1)];
-    const p2 = points[Math.min(segmentIndex + 1, points.length - 1)];
-    const p3 = points[Math.min(segmentIndex + 2, points.length - 1)];
+
+    // Ensure we have valid points for interpolation
+    const p0 = points[Math.max(0, segmentIndex - 1)] || points[0];
+    const p1 = points[Math.min(segmentIndex, points.length - 1)] || points[0];
+    const p2 = points[Math.min(segmentIndex + 1, points.length - 1)] || points[points.length - 1];
+    const p3 = points[Math.min(segmentIndex + 2, points.length - 1)] || points[points.length - 1];
+
+    // Ensure all points have x and y properties
+    if (!p0 || !p1 || !p2 || !p3 ||
+        typeof p0.x !== 'number' || typeof p0.y !== 'number' ||
+        typeof p1.x !== 'number' || typeof p1.y !== 'number' ||
+        typeof p2.x !== 'number' || typeof p2.y !== 'number' ||
+        typeof p3.x !== 'number' || typeof p3.y !== 'number') {
+        console.warn('Invalid point data in path:', { p0, p1, p2, p3 });
+        return { x: 0, y: 0 };
+    }
+
     return catmullRomInterpolation(p0, p1, p2, p3, segmentFraction);
 };
 

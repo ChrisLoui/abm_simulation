@@ -18,7 +18,7 @@ export const renderCanvas = (canvas) => {
     drawPath(ctx, ROAD_MAIN_PATH, COLORS.ROAD);
     drawPath(ctx, BUS_LANE_PATH, COLORS.BUS_LANE);
     drawLine(ctx, FIRST_LANE_DIVIDER, COLORS.LANE_DIVIDER_SOLID, 3);
-    drawLine(ctx, SECOND_LANE_DIVIDER, COLORS.LANE_DIVIDER_DOTTED, 2, [10, 10]);
+    drawLine(ctx, SECOND_LANE_DIVIDER, COLORS.LANE_DIVIDER_DOTTED, 2, [25, 20]);
     drawBusStops(ctx, BUS_STOPS);
     drawLine(ctx, LEFT_EDGE, COLORS.LANE_DIVIDER_SOLID, 2);
     drawLine(ctx, RIGHT_EDGE, COLORS.LANE_DIVIDER_SOLID, 2);

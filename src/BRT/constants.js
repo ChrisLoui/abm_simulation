@@ -144,7 +144,7 @@ export const RIGHT_EDGE = [
 
 // Colors
 export const COLORS = {
-    ROAD: '#CCCCCC',               // Light gray for regular road
+    ROAD: '#5f5f5f',               // Light gray for regular road
     BUS_LANE: '#F7D358',           // Yellow for bus lane
     LANE_DIVIDER_SOLID: '#000000', // Black for solid lane divider
     LANE_DIVIDER_DOTTED: '#FFFFFF', // White for dotted lane divider
