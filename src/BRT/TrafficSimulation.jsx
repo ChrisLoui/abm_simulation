@@ -21,7 +21,6 @@ import {
     updateVehicles
 } from './Logics/updateFunctions';
 import { renderCanvas, renderSimulation } from './renderLogic';
-import SettingsPanel from './SettingsPanel';
 import ThroughputChart from './ThroughputChart';
 
 const TrafficSimulation = () => {
@@ -44,7 +43,7 @@ const TrafficSimulation = () => {
         aggressive: 0
     });
     const [activeBusCount, setActiveBusCount] = useState(0);
-    const [showSettings, setShowSettings] = useState(false);
+    const [showSettings, setShowSettings] = useState(true);
     const [trafficDensity, setTrafficDensity] = useState(0);
     const [throughputHistory, setThroughputHistory] = useState([]);
     const throughputHistoryRef = useRef([]);
@@ -184,7 +183,20 @@ const TrafficSimulation = () => {
         setThroughputHistory([]);
         throughputHistoryRef.current = [];
 
-        // Reset the simulation
+        // Reset simulation with new settings
+        setIsSetup(false);
+        setIsRunning(false);
+        if (animationRef.current) {
+            cancelAnimationFrame(animationRef.current);
+        }
+        if (carSpawnerIntervalRef.current) {
+            clearInterval(carSpawnerIntervalRef.current);
+        }
+
+        renderCanvas(canvasRef.current);
+        setShowSettings(false);
+
+        // Re-initialize with new settings
         initializeTrafficElements();
     };
 
@@ -304,10 +316,6 @@ const TrafficSimulation = () => {
         animationRef.current = requestAnimationFrame(animate);
     };
 
-    const toggleSettings = () => {
-        setShowSettings(prev => !prev);
-    };
-
     const handleSettingChange = (e) => {
         const { name, value, type, checked } = e.target;
         setSettings({
@@ -386,20 +394,90 @@ const TrafficSimulation = () => {
                     >
                         {isRunning ? <Pause size={20} /> : <Play size={20} />}
                     </button>
-                    <button
-                        onClick={toggleSettings}
-                        className="bg-gray-500 text-white p-2 rounded hover:bg-gray-600 transition-colors"
-                        title="Settings"
-                    >
-                        <Settings size={20} />
-                    </button>
                 </div>
                 {showSettings && (
-                    <SettingsPanel
-                        settings={settings}
-                        handleSettingChange={handleSettingChange}
-                        applySettings={applySettings}
-                    />
+                    <div className="absolute top-4 left-4 bg-white p-4 rounded shadow-lg border border-gray-300 z-10">
+                        <h3 className="text-lg font-semibold mb-4">Simulation Settings</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Cars per Minute
+                                </label>
+                                <input
+                                    type="range"
+                                    name="carsPerMinute"
+                                    min="10"
+                                    max="200"
+                                    step="10"
+                                    value={settings.carsPerMinute}
+                                    onChange={handleSettingChange}
+                                    className="w-full"
+                                />
+                                <div className="text-sm text-gray-600 mt-1">
+                                    {settings.carsPerMinute} cars per minute
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Number of Buses
+                                </label>
+                                <input
+                                    type="range"
+                                    name="busCount"
+                                    min="1"
+                                    max="10"
+                                    value={settings.busCount}
+                                    onChange={handleSettingChange}
+                                    className="w-full"
+                                />
+                                <div className="text-sm text-gray-600 mt-1">
+                                    {settings.busCount} buses
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Minimum Speed (m/s)
+                                </label>
+                                <input
+                                    type="range"
+                                    name="minSpeed"
+                                    min="1"
+                                    max="5"
+                                    step="0.5"
+                                    value={settings.minSpeed}
+                                    onChange={handleSettingChange}
+                                    className="w-full"
+                                />
+                                <div className="text-sm text-gray-600 mt-1">
+                                    {settings.minSpeed} m/s
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Maximum Speed (m/s)
+                                </label>
+                                <input
+                                    type="range"
+                                    name="maxSpeed"
+                                    min="1"
+                                    max="5"
+                                    step="0.5"
+                                    value={settings.maxSpeed}
+                                    onChange={handleSettingChange}
+                                    className="w-full"
+                                />
+                                <div className="text-sm text-gray-600 mt-1">
+                                    {settings.maxSpeed} m/s
+                                </div>
+                            </div>
+                        </div>
+                        <div className="mt-4 text-sm text-gray-600">
+                            <p>Click the setup button to apply these settings and reset the simulation.</p>
+                        </div>
+                    </div>
                 )}
                 {isSetup && (
                     <div className="absolute top-4 left-4 bg-white p-2 rounded shadow-lg border border-gray-300">

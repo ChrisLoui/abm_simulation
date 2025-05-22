@@ -6,7 +6,6 @@ import TrafficSimulation from './TrafficSimulation';
 export default TrafficSimulation;
 
 // You can also export other components or utilities if needed
-export { default as SettingsPanel } from './SettingsPanel';
 
 // Export utility functions that might be useful elsewhere
 export {

@@ -158,14 +158,12 @@ export const COLORS = {
     STOP_TEXT: '#ffffff'           // White for stop text
 };
 
-// Car colors
 export const CAR_COLORS = [
-    '#ff4d4d', // Red
-    '#3366ff', // Blue
-    '#33cc33', // Green
-    '#ffcc00', // Yellow
-    '#ff9966', // Orange
-    '#9966ff'  // Purple
+    '#e81416', // Red
+    '#ffa500', // Orange
+    '#faeb36', // Yellow
+    '#79c314 ', // Green
+    '#003366'  // Very Dark Blue
 ];
 
 // Vehicle dimensions - real world in meters
