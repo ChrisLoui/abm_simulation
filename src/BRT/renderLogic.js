@@ -76,8 +76,8 @@ const drawBusStops = (ctx, busStops) => {
         // Draw waiting passenger visualization
         const indicatorX = busStop.x + busStop.radius + 30;
         const indicatorY = busStop.y;
-        const maxRadius =60;
-        const minRadius = 30;
+        const maxRadius =100;
+        const minRadius = 40;
         const maxPassengers = 20; // max expected waiting passengers
 
         // Calculate ratio (0 to 1)
