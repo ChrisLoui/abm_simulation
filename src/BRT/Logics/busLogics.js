@@ -4,12 +4,17 @@ import {
     VEHICLE_VISIBILITY_FACTOR,
 } from '../constants';
 
-
 import {
     getPositionOnPath,
     updateVehiclePositions
 } from './utilitiFuntions';
 
+// Import lane changing functions from updateFunctions
+import {
+    analyzeTrafficAhead,
+    calculateLaneScore,
+    isLaneChangeSafe
+} from './updateFunctions';
 
 export const initializeBuses = (settings, lanes, scaleFactor) => {
     const buses = [];
@@ -75,8 +80,86 @@ const createBus = (index, pathPosition, settings, scaleFactor, active = true) =>
         justLeftStop: false,
         busId: index + 1,
         throughput: 0, // Track passengers moved from A to B
-        shouldStopAtStations: settings.hasBusLane // Only stop at stations if there's a bus lane
+        shouldStopAtStations: settings.hasBusLane,
+        // Add lane changing properties
+        laneChangeProgress: 1.0,
+        laneChangeTimer: 0,
+        targetLane: laneIndex,
+        laneChangeDuration: 1000,
+        laneChangeCooldown: 3000,
+        stuckTimer: 0,
+        behaviorType: 'neutral', // Buses are always neutral in behavior
+        desiredSpeed: speed,
+        preferredLane: laneIndex
     };
+};
+
+/**
+ * Try to change a bus's lane if possible.
+ * Returns true if lane change initiated, false otherwise.
+ */
+const tryChangeBusLane = (bus, vehicles, buses, lanes) => {
+    if (bus.laneChangeProgress < 1.0) return false;
+
+    const possibleLanes = [1, 2].filter(laneIndex => laneIndex !== bus.lane);
+
+    // Skip lane change attempts if the bus just changed lanes recently
+    if (bus.laneChangeTimer > 0) return false;
+
+    // Check how many vehicles are currently changing lanes
+    const currentlyChangingLanes = [...vehicles, ...buses].filter(v =>
+        v.laneChangeProgress < 1.0
+    ).length;
+
+    // Limit simultaneous lane changes
+    const maxSimultaneousChanges = Math.max(1, Math.ceil((vehicles.length + buses.length) * 0.05));
+    if (currentlyChangingLanes >= maxSimultaneousChanges) {
+        return false;
+    }
+
+    // Check for nearby vehicles changing lanes
+    const nearbyVehicles = [...vehicles, ...buses].filter(v =>
+        v !== bus &&
+        v.laneChangeProgress < 1.0 &&
+        Math.abs(v.pathPosition - bus.pathPosition) < 0.1
+    );
+
+    if (nearbyVehicles.length > 0) {
+        bus.laneChangeTimer = 500;
+        return false;
+    }
+
+    // Analyze current lane conditions
+    const currentLaneTraffic = analyzeTrafficAhead(bus, [...vehicles, ...buses], 0.2);
+    let bestLane = bus.lane;
+    let bestLaneScore = calculateLaneScore(bus, currentLaneTraffic.vehicleCount, currentLaneTraffic.averageSpeed, currentLaneTraffic.nearestVehicleDistance);
+
+    // Check each possible lane
+    for (const targetLane of possibleLanes) {
+        if (!isLaneChangeSafe(bus, [...vehicles, ...buses], targetLane)) {
+            continue;
+        }
+
+        const targetLaneTraffic = analyzeTrafficAhead(bus, [...vehicles, ...buses], 0.2, targetLane);
+        const laneScore = calculateLaneScore(bus, targetLaneTraffic.vehicleCount, targetLaneTraffic.averageSpeed, targetLaneTraffic.nearestVehicleDistance);
+
+        // Higher threshold for buses to change lanes
+        if (laneScore > bestLaneScore + 0.5) {
+            bestLane = targetLane;
+            bestLaneScore = laneScore;
+        }
+    }
+
+    if (bestLane !== bus.lane) {
+        if (Math.random() < 0.7) {
+            bus.targetLane = bestLane;
+            bus.laneChangeProgress = 0.99;
+            bus.laneChangeTimer = bus.laneChangeCooldown * (1 + Math.random() * 0.5);
+            return true;
+        }
+    }
+
+    return false;
 };
 
 /* ------------------------------ BUS UPDATE ------------------------------ */
@@ -186,6 +269,11 @@ export const updateBuses = (
                         }
                     }
                 });
+            }
+
+            // If not in a bus lane, try to change lanes like cars
+            if (!bus.shouldStopAtStations) {
+                tryChangeBusLane(bus, vehicles, updatedBuses, lanes);
             }
 
             if (bus.pathPosition < 0.05 && bus.lastVisitedStop !== -1) {
