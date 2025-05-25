@@ -6,12 +6,12 @@ export const CANVAS_HEIGHT = 1000;  // Taller for better proportions
 export const ROAD_LENGTH_METERS = 2600;
 
 // Define bus stop positions - for longer landscape orientation
-export const BUS_STOPS = [
-    { x: 250, y: 250, radius: 40, pathPosition: 0.15 },     // First bus stop
-    { x: 1550, y: 300, radius: 40, pathPosition: 0.35 },    // Second bus stop
-    { x: 2500, y: 270, radius: 40, pathPosition: 0.55 },    // Third bus stop
-    { x: 3500, y: 240, radius: 40, pathPosition: 0.75 }     // Fourth bus stop
-];
+// export const BUS_STOPS = [
+//     { x: 250, y: 250, radius: 40, pathPosition: 0.15 },     // First bus stop
+//     { x: 1550, y: 300, radius: 40, pathPosition: 0.35 },    // Second bus stop
+//     { x: 2500, y: 270, radius: 40, pathPosition: 0.55 },    // Third bus stop
+//     { x: 3500, y: 240, radius: 40, pathPosition: 0.75 }     // Fourth bus stop
+// ];
 
 // THINNER LANES - reduced spacing between lanes to make them appear to fit only one car
 export const LANES = [

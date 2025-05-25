@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Pause, Play, Settings, RefreshCw } from 'lucide-react';
+import { generateRandomBusStopsOnLane } from './busStopGenerator';
 import {
     CANVAS_WIDTH,
     CANVAS_HEIGHT,
     ROAD_LENGTH_METERS,
-    BUS_STOPS,
+    // BUS_STOPS,
     LANES
 } from './constants';
 import {
@@ -41,6 +42,12 @@ const TrafficSimulation = () => {
         neutral: 0,
         aggressive: 0
     });
+    const [BUS_STOPS, setBusStops]= useState([
+        { x: 250, y: 250, radius: 40, pathPosition: 0.15 },
+        { x: 1550, y: 300, radius: 40, pathPosition: 0.35 },
+        { x: 2500, y: 270, radius: 40, pathPosition: 0.55 },
+        { x: 3500, y: 240, radius: 40, pathPosition: 0.75 }
+    ]);     
     const [activeBusCount, setActiveBusCount] = useState(0);
     const [showSettings, setShowSettings] = useState(true);
     const [trafficDensity, setTrafficDensity] = useState(0);
@@ -364,7 +371,8 @@ const TrafficSimulation = () => {
         // Update buses and handle their throughput
         setBuses(prevBuses => {
             const updatedBuses = updateBuses(
-                prevBuses, vehicles,
+                prevBuses,
+                vehicles,
                 BUS_STOPS,
                 CANVAS_WIDTH,
                 deltaTime,
@@ -425,10 +433,49 @@ const TrafficSimulation = () => {
 
     const handleSettingChange = (settingName, value) => {
         setSettings(prev => ({
-            ...prev,
-            [settingName]: value
+          ...prev,
+          [settingName]: value
         }));
-    };
+      
+        if (settingName === 'scenario') {
+          if (value === 'Without Bus Lane') {
+            // Directly use LANES[2] to refer to regularLane2
+            const randomBusStops = generateRandomBusStopsOnLane(LANES[2], 8);
+            setBusStops(randomBusStops);
+          } else {
+            // Reset to default bus stops for "With Bus Lane"
+            setBusStops([
+              { x: 250, y: 250, radius: 40, pathPosition: 0.15 },
+              { x: 1550, y: 300, radius: 40, pathPosition: 0.35 },
+              { x: 2500, y: 270, radius: 40, pathPosition: 0.55 },
+              { x: 3500, y: 240, radius: 40, pathPosition: 0.75 }
+            ]);
+          }
+        }
+      };
+      
+      
+      
+   
+
+    // const handleScenarioChange = (newScenario) => {
+    //     setSettings(prev => ({ ...prev, scenario: newScenario }));
+    
+    //     if (newScenario === 'Without Bus Lane') {
+    //         // Use LANES[2] for regularLane2 to generate random bus stops
+    //         const randomBusStops = generateRandomBusStopsOnLane(LANES[2], 8);
+    //         setBusStops(randomBusStops);
+    //     } else {
+    //         // Reset to default bus stops for "With Bus Lane"
+    //         setBusStops([
+    //             { x: 250, y: 250, radius: 40, pathPosition: 0.15 },
+    //             { x: 1550, y: 300, radius: 40, pathPosition: 0.35 },
+    //             { x: 2500, y: 270, radius: 40, pathPosition: 0.55 },
+    //             { x: 3500, y: 240, radius: 40, pathPosition: 0.75 }
+    //         ]);
+    //     }
+    // };
+    
 
     const currentParams = getSimulationParams();
     return (
@@ -650,13 +697,14 @@ const TrafficSimulation = () => {
                                                     onMouseLeave={(e) => e.target.style.backgroundColor = '#f9fafb'}
                                                 >
                                                     <input
-                                                        type="radio"
-                                                        name="scenario"
-                                                        value={value}
-                                                        checked={settings.scenario === value}
-                                                        onChange={(e) => handleSettingChange('scenario', e.target.value)}
-                                                        style={{ marginRight: '12px' }}
+                                                    type="radio"
+                                                    name="scenario"
+                                                    value={value}
+                                                    checked={settings.scenario === value}
+                                                    onChange={(e) => handleSettingChange('scenario', e.target.value)}  // Pass both arguments
                                                     />
+
+
                                                     <span style={{ fontSize: '16px', marginRight: '8px' }}>{icon}</span>
                                                     <div style={{ flex: 1, minWidth: 0 }}>
                                                         <div style={{ fontWeight: '500', color: '#1f2937', fontSize: '14px' }}>
