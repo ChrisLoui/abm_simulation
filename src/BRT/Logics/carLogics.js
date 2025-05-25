@@ -1,4 +1,4 @@
-import{
+import {
     CAR_COLORS,
     CAR_LENGTH_METERS,
     CAR_WIDTH_METERS,
@@ -14,8 +14,10 @@ import{
  * New cars are spawned at the left side of the road (pathPosition = 0).
  */
 export const createCar = (settings, lanes, scaleFactor) => {
-    // Cars choose randomly between lane 1 and 2.
-    const laneIndex = 1 + Math.floor(Math.random() * 2);
+    // Cars can use all lanes if there's no bus lane, otherwise only lanes 1 and 2
+    const laneIndex = settings.hasBusLane ?
+        (1 + Math.floor(Math.random() * 2)) : // Lanes 1 or 2 only
+        Math.floor(Math.random() * 3); // Lanes 0, 1, or 2
 
     // Convert speed to match simulation timing
     // Real time: 3.12 minutes (187 seconds) for 2.6km at 50 km/h

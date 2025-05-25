@@ -43,7 +43,9 @@ export const initializeBuses = (settings, lanes, scaleFactor) => {
  * @param {Boolean} active - Whether this bus is active immediately.
  */
 const createBus = (index, pathPosition, settings, scaleFactor, active = true) => {
-    const laneIndex = 0; // Buses use lane 0
+    // If there's no bus lane, randomly assign a lane (0, 1, or 2)
+    // If there is a bus lane, always use lane 0
+    const laneIndex = settings.hasBusLane ? 0 : Math.floor(Math.random() * 3);
 
     // Calculate bus speed for 2.6km in 3 minutes (adjusted for simulation time)
     // Real speed: 2.6km/3min = 14.44 m/s
@@ -72,7 +74,8 @@ const createBus = (index, pathPosition, settings, scaleFactor, active = true) =>
         lastVisitedStop: -1,
         justLeftStop: false,
         busId: index + 1,
-        throughput: 0 // Track passengers moved from A to B
+        throughput: 0, // Track passengers moved from A to B
+        shouldStopAtStations: settings.hasBusLane // Only stop at stations if there's a bus lane
     };
 };
 
@@ -82,14 +85,14 @@ const createBus = (index, pathPosition, settings, scaleFactor, active = true) =>
  * Update buses for each animation frame.
  */
 export const updateBuses = (
-    prevBuses, 
-    vehicles, 
-    busStops, 
-    canvasWidth, 
-    deltaTime, 
+    prevBuses,
+    vehicles,
+    busStops,
+    canvasWidth,
+    deltaTime,
     lanes,
     onPassengersAlighted
-)=> {
+) => {
     const updatedBuses = [...prevBuses];
 
     // Initialize bus stops if needed
@@ -100,28 +103,31 @@ export const updateBuses = (
         }
     });
 
-    // Update passenger waiting at stations
+    // Only update passenger waiting at stations if buses can stop at them
     const currentTime = Date.now();
-    busStops.forEach(stop => {
-        const timeDiff = (currentTime - stop.lastUpdateTime) / 1000; // Convert to seconds
+    if (updatedBuses.length > 0 && updatedBuses[0].shouldStopAtStations) {
+        busStops.forEach(stop => {
+            const timeDiff = (currentTime - stop.lastUpdateTime) / 1000; // Convert to seconds
 
-        if (timeDiff >= 1) {
-            // Add 0-5 passengers per second, but don't exceed 20
-            const newPassengers = Math.floor(Math.random() * 6);
-            stop.waitingPassengers = Math.min(stop.waitingPassengers + newPassengers, 20);
-            stop.lastUpdateTime = currentTime;
-        }
-    });
+            if (timeDiff >= 1) {
+                // Add 0-5 passengers per second, but don't exceed 20
+                const newPassengers = Math.floor(Math.random() * 6);
+                stop.waitingPassengers = Math.min(stop.waitingPassengers + newPassengers, 20);
+                stop.lastUpdateTime = currentTime;
+            }
+        });
+    }
 
     updatedBuses.forEach(bus => {
         if (!bus.active) return;
 
-         // Reset justLeftStop once bus has moved a bit from last stop (example: pathPosition > 0.1)
+        // Reset justLeftStop once bus has moved a bit from last stop (example: pathPosition > 0.1)
         if (bus.justLeftStop && bus.pathPosition > 0.1) {
             bus.justLeftStop = false;
         }
 
-        if (bus.stoppedAtBusStop >= 0) {
+        // Only process bus stops if we should stop at stations
+        if (bus.shouldStopAtStations && bus.stoppedAtBusStop >= 0) {
             bus.stopTime += deltaTime;
             const currentStop = busStops[bus.stoppedAtBusStop];
 
@@ -140,9 +146,6 @@ export const updateBuses = (
                 bus.passengers -= passengersToDrop;
                 bus.passengersDroppedOff = (bus.passengersDroppedOff || 0) + passengersToDrop;
 
-                // // UPDATE TOTAL PASSENGERS ALIGHTED STATE 
-                // setTotalPassengersAlighted(prev => prev + passengersToDrop);
-                
                 // Notify React component of alighted passengers
                 if (onPassengersAlighted) {
                     onPassengersAlighted(passengersToDrop);
@@ -153,40 +156,37 @@ export const updateBuses = (
                 currentStop.waitingPassengers = Math.max(0, waitingPassengers - passengersToPickUp);
 
                 // Mark bus as having left this stop
-                 bus.lastVisitedStop = bus.stoppedAtBusStop;
-
+                bus.lastVisitedStop = bus.stoppedAtBusStop;
                 bus.stoppedAtBusStop = -1;
                 bus.stopTime = 0;
                 bus.justLeftStop = true;
             }
         } else {
-            busStops.forEach((stop, stopIndex) => {
-                if (stopIndex === bus.lastVisitedStop || bus.justLeftStop) return;
+            // Only check for stops if we should stop at stations
+            if (bus.shouldStopAtStations) {
+                busStops.forEach((stop, stopIndex) => {
+                    if (stopIndex === bus.lastVisitedStop || bus.justLeftStop) return;
 
-                
+                    const busPos = bus.x;
+                    const stopPos = stop.x;
+                    const stoppingDistance = bus.width * 0.15;
+                    const isApproachingFromLeft = busPos < stopPos && (stopPos - busPos) < stoppingDistance;
 
-                const busPos = bus.x;
-                const stopPos = stop.x;
-                const stoppingDistance = bus.width * 0.15;
-                const isApproachingFromLeft = busPos < stopPos && (stopPos - busPos) < stoppingDistance;
+                    if (isApproachingFromLeft) {
+                        const busLane = lanes[bus.lane];
+                        const laneY = getPositionOnPath(busLane.points, bus.pathPosition).y;
 
-                if (isApproachingFromLeft) {
-                    const busLane = lanes[bus.lane];
-                    const laneY = getPositionOnPath(busLane.points, bus.pathPosition).y;
-
-                    console.log(`Bus ${bus.busId} at x=${bus.x}, Stop ${stopIndex} at x=${stop.x}, laneY=${laneY}, stopY=${stop.y}`);
-
-                    if (Math.abs(laneY - stop.y) < bus.height) {
-                        // Only stop if bus is not full or there are passengers waiting
-                        if (bus.passengers < bus.capacity || stop.waitingPassengers > 0) {
-                            bus.stoppedAtBusStop = stopIndex;
-                            // Initial stop time will be updated based on passenger count
-                            bus.stopTime = 0;
-                            bus.waiting = true;
+                        if (Math.abs(laneY - stop.y) < bus.height) {
+                            // Only stop if bus is not full or there are passengers waiting
+                            if (bus.passengers < bus.capacity || stop.waitingPassengers > 0) {
+                                bus.stoppedAtBusStop = stopIndex;
+                                bus.stopTime = 0;
+                                bus.waiting = true;
+                            }
                         }
                     }
-                }
-            });
+                });
+            }
 
             if (bus.pathPosition < 0.05 && bus.lastVisitedStop !== -1) {
                 bus.lastVisitedStop = -1;

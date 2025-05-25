@@ -19,7 +19,6 @@ export const renderCanvas = (canvas) => {
     drawPath(ctx, BUS_LANE_PATH, COLORS.BUS_LANE);
     drawLine(ctx, FIRST_LANE_DIVIDER, COLORS.LANE_DIVIDER_SOLID, 3);
     drawLine(ctx, SECOND_LANE_DIVIDER, COLORS.LANE_DIVIDER_DOTTED, 2, [25, 20]);
-    drawBusStops(ctx, BUS_STOPS);
     drawLine(ctx, LEFT_EDGE, COLORS.LANE_DIVIDER_SOLID, 2);
     drawLine(ctx, RIGHT_EDGE, COLORS.LANE_DIVIDER_SOLID, 2);
 };
@@ -118,6 +117,13 @@ export const renderSimulation = (canvas, vehicles, buses, busStops, lanes, canva
     renderCanvas(canvas);
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+
+    // Only draw bus stops if there are active buses that should stop at stations
+    const shouldDrawBusStops = buses.length > 0 && buses[0].shouldStopAtStations;
+    if (shouldDrawBusStops) {
+        drawBusStops(ctx, busStops);
+    }
+
     // Only include active buses.
     const activeBuses = buses.filter(bus => bus.active);
     const allVehicles = [...vehicles, ...activeBuses];
@@ -141,7 +147,6 @@ export const renderSimulation = (canvas, vehicles, buses, busStops, lanes, canva
     allVehicles.forEach(vehicle => {
         drawVehicle(ctx, vehicle);
     });
-
 };
 
 const findNearCollisions = (vehicles) => {
@@ -350,136 +355,7 @@ const drawRoundedRect = (ctx, x, y, width, height, radius) => {
     ctx.fill();
 };
 
-// Add throughput visualization
-const drawThroughputGraph = (ctx, throughputHistory, canvasWidth, canvasHeight) => {
-    if (!throughputHistory || throughputHistory.length === 0) return;
-
-    // Graph dimensions and position
-    const graphWidth = 300;
-    const graphHeight = 200;
-    const graphX = 50;  // Position from left
-    const graphY = 50;  // Position from top
-    const padding = 30;
-    const axisX = graphX + padding;
-    const axisY = graphY + graphHeight - padding;
-    const pointSpacing = (graphWidth - 2 * padding) / 9;
-
-    // Draw background
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-    ctx.fillRect(graphX, graphY, graphWidth, graphHeight);
-    ctx.strokeStyle = '#000';
-    ctx.strokeRect(graphX, graphY, graphWidth, graphHeight);
-
-    // Draw title
-    ctx.fillStyle = '#000';
-    ctx.font = '14px Arial';
-    ctx.fillText('Passenger Throughput (Point A to B)', graphX + padding, graphY + 20);
-
-    // Draw legend
-    const legendY = graphY + 40;
-    ctx.font = '12px Arial';
-
-    // Bus legend
-    ctx.fillStyle = '#4a90e2';
-    ctx.fillRect(graphX + padding, legendY, 20, 10);
-    ctx.fillStyle = '#000';
-    ctx.fillText('Bus Passengers', graphX + padding + 25, legendY + 8);
-
-    // Car legend
-    ctx.fillStyle = '#ff6b6b';
-    ctx.fillRect(graphX + padding + 120, legendY, 20, 10);
-    ctx.fillStyle = '#000';
-    ctx.fillText('Car Passengers', graphX + padding + 145, legendY + 8);
-
-    // Total legend
-    ctx.fillStyle = '#4CAF50';
-    ctx.fillRect(graphX + padding + 240, legendY, 20, 10);
-    ctx.fillStyle = '#000';
-    ctx.fillText('Total', graphX + padding + 265, legendY + 8);
-
-    // Calculate scale
-    const maxPassengers = Math.max(
-        ...throughputHistory.map(data => Math.max(data.buses, data.cars, data.totalPassengers))
-    );
-    const scaleY = (graphHeight - 2 * padding) / (maxPassengers || 1);
-
-    // Draw axes
-    ctx.beginPath();
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 1;
-    ctx.moveTo(axisX, graphY + padding);
-    ctx.lineTo(axisX, axisY);
-    ctx.lineTo(graphX + graphWidth - padding, axisY);
-    ctx.stroke();
-
-    // Draw y-axis labels
-    ctx.fillStyle = '#000';
-    ctx.font = '10px Arial';
-    for (let i = 0; i <= 5; i++) {
-        const value = Math.round((maxPassengers * i) / 5);
-        const y = axisY - (value * scaleY);
-        ctx.fillText(value.toString(), graphX + 10, y + 3);
-    }
-
-    // Draw bus passengers
-    ctx.beginPath();
-    ctx.strokeStyle = '#4a90e2';
-    ctx.lineWidth = 2;
-    throughputHistory.slice(-10).forEach((data, i) => {
-        const x = axisX + i * pointSpacing;
-        const y = axisY - data.buses * scaleY;
-        if (i === 0) {
-            ctx.moveTo(x, y);
-        } else {
-            ctx.lineTo(x, y);
-        }
-    });
-    ctx.stroke();
-
-    // Draw car passengers
-    ctx.beginPath();
-    ctx.strokeStyle = '#ff6b6b';
-    ctx.lineWidth = 2;
-    throughputHistory.slice(-10).forEach((data, i) => {
-        const x = axisX + i * pointSpacing;
-        const y = axisY - data.cars * scaleY;
-        if (i === 0) {
-            ctx.moveTo(x, y);
-        } else {
-            ctx.lineTo(x, y);
-        }
-    });
-    ctx.stroke();
-
-    // Draw total passengers
-    ctx.beginPath();
-    ctx.strokeStyle = '#4CAF50';
-    ctx.lineWidth = 2;
-    throughputHistory.slice(-10).forEach((data, i) => {
-        const x = axisX + i * pointSpacing;
-        const y = axisY - data.totalPassengers * scaleY;
-        if (i === 0) {
-            ctx.moveTo(x, y);
-        } else {
-            ctx.lineTo(x, y);
-        }
-    });
-    ctx.stroke();
-
-    // Draw time labels (in seconds)
-    ctx.fillStyle = '#000';
-    ctx.font = '10px Arial';
-    throughputHistory.slice(-10).forEach((data, i) => {
-        const x = axisX + i * pointSpacing;
-        const time = Math.floor((Date.now() - data.timestamp) / 1000);
-        ctx.fillText(time + 's', x - 10, axisY + 15);
-    });
-};
-
 // Modify the main render function to include throughput visualization
 export const render = (ctx, vehicles, buses, busStops, lanes, canvasWidth, canvasHeight, throughputHistory) => {
     // ... existing rendering code ...
-
-    // Draw throughput graph
-    drawThroughputGraph(ctx, throughputHistory, canvasWidth, canvasHeight);
 };
