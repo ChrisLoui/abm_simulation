@@ -762,7 +762,7 @@ const TrafficSimulation = () => {
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                         <span style={{ fontSize: '14px', color: '#2563eb' }}>Bus Passengers:</span>
                                                         <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#2563eb' }}>
-                                                            {totalBusPassengers}
+                                                            {totalBusPassengers + totalPassengersAlighted}
                                                         </span>
                                                     </div>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
