@@ -73,25 +73,25 @@ const drawBusStops = (ctx, busStops) => {
         ctx.fillText(`${index + 1}`, busStop.x, busStop.y + 12);
 
         // Draw waiting passenger visualization
-        const indicatorX = busStop.x + busStop.radius + 30;
-        const indicatorY = busStop.y;
-        const maxRadius =100;
+        const indicatorX = busStop.x + busStop.radius;
+        const indicatorY = busStop.y - busStop.radius - 60; // Moved above the station
+        const maxRadius = 80;
         const minRadius = 40;
         const maxPassengers = 20; // max expected waiting passengers
 
         // Calculate ratio (0 to 1)
         const passengerRatio = Math.min(waitingPassengers / maxPassengers, 1);
-        
+
         // Calculate circle radius (between min and max)
         const indicatorRadius = minRadius + (maxRadius - minRadius) * passengerRatio;
-        
+
         // Draw circle border
         ctx.strokeStyle = '#FFFFFF';
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.arc(indicatorX, indicatorY, indicatorRadius, 0, Math.PI * 2);
         ctx.stroke();
-        
+
         // Draw circle fill with opacity
         ctx.globalAlpha = 0.4;
         ctx.fillStyle = '#4CAF50';
@@ -99,7 +99,7 @@ const drawBusStops = (ctx, busStops) => {
         ctx.arc(indicatorX, indicatorY, indicatorRadius, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
-        
+
         // Adjust font size based on radius
         const fontSize = indicatorRadius * 0.8; // e.g. 80% of radius
         ctx.fillStyle = '#FFFFFF';
@@ -107,7 +107,7 @@ const drawBusStops = (ctx, busStops) => {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(`${waitingPassengers}`, indicatorX, indicatorY);
-        
+
 
         // Draw station roof
         ctx.beginPath();
