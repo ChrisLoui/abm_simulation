@@ -461,10 +461,10 @@ export const updateBuses = (
             if (bus.stoppedAtBusStop < busStops.length) {
                 // Stopping at visible bus stop
                 const currentStop = busStops[bus.stoppedAtBusStop];
-                passengersToDrop = Math.min(bus.passengers, Math.floor(Math.random() * 8) + 2);
+                passengersToDrop = Math.min(bus.passengers, Math.floor(Math.random() *15)+ 3); //allows 3 to 15 passengers to alight
                 const waitingPassengers = currentStop.waitingPassengers || 0;
                 const availableSpace = bus.capacity - bus.passengers;
-                passengersToPickUp = Math.min(waitingPassengers, availableSpace, Math.floor(Math.random() * 6) + 1);
+                passengersToPickUp = Math.min(waitingPassengers, availableSpace, Math.floor(Math.random() * 8) + 1);//1 to 7 passengers
                 baseStopTime = 800 + (passengersToDrop * 150) + (passengersToPickUp * 200);
 
                 if (bus.stopTime >= baseStopTime) {
@@ -508,7 +508,7 @@ export const updateBuses = (
             } else {
                 // Stopping at invisible stop point - VERY SHORT STOPS
                 passengersToDrop = Math.min(bus.passengers, Math.floor(Math.random() * 4) + 1);
-                passengersToPickUp = Math.floor(Math.random() * 2); // Very few pickup at random stops
+                passengersToPickUp = Math.floor(Math.random() * 8 + 2; // Range between 2 and 8
                 baseStopTime = 200 + (passengersToDrop * 50) + (passengersToPickUp * 80); // VERY SHORT - 200-600ms
 
                 if (bus.stopTime >= baseStopTime) {

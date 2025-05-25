@@ -44,7 +44,6 @@ export const updateVehicles = (prevVehicles, buses, deltaTime, lanes) => {
         let shouldWait = false;
         let blockedAhead = false;
         let vehicleAheadDistance = 1.0;
-        let vehicleBehindDistance = 1.0;
         let vehicleAhead = null;
 
         // Check if any vehicle is changing into this vehicle's lane
@@ -85,32 +84,6 @@ export const updateVehicles = (prevVehicles, buses, deltaTime, lanes) => {
             vehicle.laneChangeTimer -= deltaTime;
         }
 
-        // Check if this vehicle is in a group with other vehicles
-        const laneKey = `${vehicle.lane}_${Math.floor(vehicle.pathPosition * 10)}`;
-        const groupVehicles = laneGroups[laneKey] || [];
-
-        // If there are other vehicles in the same position group, coordinate lane changes
-        if (groupVehicles.length > 1) {
-            const changingInGroup = groupVehicles.filter(v => v.laneChangeProgress < 1.0);
-            if (changingInGroup.length > 0) {
-                // If another vehicle in the group is changing lanes, wait
-                vehicle.laneChangeTimer = 1000;
-            }
-        }
-
-        // Handle lane change progress
-        if (vehicle.type === 'car' && vehicle.laneChangeProgress < 1.0) {
-            const baseDuration = vehicle.laneChangeDuration;
-            const progressChangePerMs = 1 / baseDuration;
-            vehicle.laneChangeProgress -= progressChangePerMs * deltaTime;
-
-            if (vehicle.laneChangeProgress <= 0) {
-                vehicle.lane = vehicle.targetLane;
-                vehicle.laneChangeProgress = 1.0;
-                vehicle.laneChangeTimer = vehicle.laneChangeCooldown * (1 + Math.random() * 0.5);
-            }
-        }
-
         // Check vehicles ahead and behind in the same lane
         [...updatedVehicles, ...buses].forEach(otherVehicle => {
             if (vehicle !== otherVehicle && vehicle.lane === otherVehicle.lane && otherVehicle.active !== false) {
@@ -126,33 +99,9 @@ export const updateVehicles = (prevVehicles, buses, deltaTime, lanes) => {
                         vehicleAhead = otherVehicle;
                     }
                 }
-
-                // Check for vehicles behind
-                let distBehind = vehicle.pathPosition - otherVehicle.pathPosition;
-                if (distBehind < 0) distBehind += 1;
-                if (distBehind > 0 && distBehind < vehicleBehindDistance) {
-                    vehicleBehindDistance = distBehind;
-                }
-
-                // Adjust detection distance based on behavior and speed
-                const speedFactor = vehicle.speed / 3.0;
-                const baseDetectionDistance = vehicle.behaviorType === 'aggressive' ? 0.06 :
-                    vehicle.behaviorType === 'neutral' ? 0.05 : 0.04;
-                const detectionDistance = baseDetectionDistance * (1 + speedFactor * 0.5);
-
-                // Check for immediate collision risk
-                if (distAhead > 0 && distAhead < detectionDistance) {
-                    blockedAhead = true;
-                    const safetyDistance = vehicle.behaviorType === 'aggressive' ? 0.02 :
-                        vehicle.behaviorType === 'neutral' ? 0.025 : 0.03;
-                    if (distAhead < safetyDistance) {
-                        shouldWait = true;
-                    }
-                }
             }
         });
 
-        
         // Implement Intelligent Driver Model (IDM) for speed control
         if (vehicleAhead) {
             const deltaV = vehicle.speed - vehicleAhead.speed;
@@ -162,8 +111,7 @@ export const updateVehicles = (prevVehicles, buses, deltaTime, lanes) => {
             const b = 3.0; // Comfortable deceleration
 
             const s = vehicleAheadDistance * 100; // Convert to meters
-            // If vehicle ahead is a bus, increase s0 to keep more distance
-            const s0Adjusted = vehicleAhead.type === 'bus' ? s0 * 1.5 : s0;
+            const s0Adjusted = vehicleAhead.type === 'bus' ? s0 * 1.5 : s0; // Increase distance if bus ahead
 
             const sStar = s0Adjusted + Math.max(0, vehicle.speed * T + (vehicle.speed * deltaV) / (2 * Math.sqrt(a * b)));
 
@@ -176,22 +124,19 @@ export const updateVehicles = (prevVehicles, buses, deltaTime, lanes) => {
             vehicle.speed = Math.min(vehicle.desiredSpeed, vehicle.speed + acceleration * (deltaTime / 1000));
         }
 
-
-        // Check if car should try to change lanes
+        // Handle lane changes: Ensure cars cannot pass through vehicles in other lanes
         if (vehicle.type === 'car' && vehicle.laneChangeProgress >= 1.0 && vehicle.laneChangeTimer <= 0) {
-            // Increase lane change probability when stuck
             let baseChance = blockedAhead ? vehicle.laneChangeFrequency * 1.5 : vehicle.laneChangeFrequency * 0.2;
 
-            // If car is stuck for a while, increasingly encourage lane changes
             if (vehicle.stuckTimer > 0) {
                 const stuckBoost = Math.min(vehicle.stuckTimer / 3000, 1) * 0.5;
                 baseChance += stuckBoost;
             }
 
-            // Roll for lane change attempt
+            // Only attempt to change lanes if there are no blocking vehicles
             if (Math.random() < baseChance) {
                 const changed = tryChangeCarLane(vehicle, updatedVehicles, buses, lanes);
-
+                
                 // If car is stuck and couldn't change lanes, try more aggressively
                 if (!changed && vehicle.stuckTimer > 2000) {
                     tryEmergencyLaneChange(vehicle, updatedVehicles, buses, lanes);
@@ -201,7 +146,6 @@ export const updateVehicles = (prevVehicles, buses, deltaTime, lanes) => {
 
         // Apply speed factor to update position
         if (!shouldWait) {
-            // Convert deltaTime from milliseconds to seconds for proper speed scaling
             const deltaTimeSeconds = deltaTime / 1000;
             vehicle.pathPosition += vehicle.speed * deltaTimeSeconds;
             if (vehicle.pathPosition > 1) {
@@ -238,14 +182,6 @@ export const updateVehicles = (prevVehicles, buses, deltaTime, lanes) => {
     return updatedVehicles;
 };
 
-/**
- * Try to change a car's lane if possible with improved decision-making.
- * Returns true if lane change initiated, false otherwise.
- */
-/**
- * Try to change a car's lane if possible with improved decision-making.
- * Returns true if lane change initiated, false otherwise.
- */
 const tryChangeCarLane = (car, vehicles, buses, lanes) => {
     if (car.laneChangeProgress < 1.0) return false;
 
@@ -273,7 +209,6 @@ const tryChangeCarLane = (car, vehicles, buses, lanes) => {
         Math.abs(v.pathPosition - car.pathPosition) < 0.1
     );
 
-    // If there are vehicles changing lanes nearby, wait
     if (nearbyVehicles.length > 0) {
         car.laneChangeTimer = 500; // Short cooldown before trying again
         return false;
@@ -363,6 +298,7 @@ const tryChangeCarLane = (car, vehicles, buses, lanes) => {
 
     return false;
 };
+
 
 /**
  * For desperate situations: when a vehicle is stuck for a long time,
