@@ -22,6 +22,7 @@ import {
 } from './Logics/updateFunctions';
 import { renderCanvas, renderSimulation } from './renderLogic';
 import PlotlyChart from './ThroughputChart';
+import TravelTimeChart from './TravelTimeChart';
 
 const TrafficSimulation = () => {
     // Simplified settings with three key parameters
@@ -56,6 +57,10 @@ const TrafficSimulation = () => {
 
     // Calculate scale factor (pixels per meter).
     const scaleFactor = CANVAS_WIDTH / ROAD_LENGTH_METERS;
+
+    // Add new state for travel times
+    const [busTravelTimes, setBusTravelTimes] = useState([]);
+    const [carTravelTimes, setCarTravelTimes] = useState([]);
 
     // Convert simplified settings to simulation parameters
     const getSimulationParams = () => {
@@ -245,42 +250,23 @@ const TrafficSimulation = () => {
             // First update all vehicles
             let updated = updateVehicles(prevVehicles, buses, deltaTime, LANES);
 
-            // Count cars that have completed a full loop
-            let completedCars = 0;
+            // Track completed trips and travel times
             updated.forEach(vehicle => {
                 if (vehicle.type === 'car' && vehicle.pathPosition > 0.95) {
-                    completedCars++;
-                    vehicle.pathPosition = 0; // Reset position to start
+                    // Calculate travel time for completed trip
+                    const travelTime = (timestamp - vehicle.startTime) / 1000; // Convert to seconds
+                    setCarTravelTimes(prev => [...prev, travelTime]);
+
+                    // Reset position and start time for next trip
+                    vehicle.pathPosition = 0;
+                    vehicle.startTime = timestamp;
+
+                    // Update passenger count (3 passengers per car)
+                    setTotalCarPassengers(prev => prev + 3);
+                } else if (vehicle.type === 'car' && !vehicle.startTime) {
+                    // Initialize start time for new cars
+                    vehicle.startTime = timestamp;
                 }
-            });
-
-            // Update car passenger count (3 passengers per car)
-            if (completedCars > 0) {
-                setTotalCarPassengers(prev => prev + (completedCars * 3));
-            }
-
-            // Monitor for stuck cars but don't remove them
-            updated = updated.map(car => {
-                if (car.type === 'car') {
-                    // Initialize stuck properties if they don't exist
-                    if (car.stuckTimer === undefined) {
-                        car.stuckTimer = 0;
-                        car.lastPosition = car.pathPosition;
-                        car.consecutiveStuckFrames = 0;
-                    }
-
-                    // Check if the car has moved
-                    const positionChange = Math.abs(car.pathPosition - (car.lastPosition || 0));
-                    if (positionChange < 0.001) {
-                        car.stuckTimer += deltaTime;
-                        car.consecutiveStuckFrames++;
-                    } else {
-                        car.stuckTimer = 0;
-                        car.consecutiveStuckFrames = 0;
-                    }
-                    car.lastPosition = car.pathPosition;
-                }
-                return car;
             });
 
             return updated;
@@ -290,24 +276,33 @@ const TrafficSimulation = () => {
         setBuses(prevBuses => {
             const updatedBuses = updateBuses(prevBuses, vehicles, BUS_STOPS, CANVAS_WIDTH, deltaTime, LANES);
 
-            // Count bus throughput when they exit
+            // Track bus travel times and throughput
             updatedBuses.forEach(bus => {
                 if (bus.pathPosition > 0.95 && !bus.throughputCounted) {
+                    // Calculate travel time for completed trip
+                    const travelTime = (timestamp - (bus.startTime || timestamp)) / 1000; // Convert to seconds
+                    setBusTravelTimes(prev => [...prev, travelTime]);
+
                     bus.throughputCounted = true;
                     const passengersExiting = bus.passengers || 0;
                     bus.throughput = passengersExiting;
-                    // Add to total bus passengers count
                     setTotalBusPassengers(prev => prev + passengersExiting);
+
+                    // Reset for next trip
                     bus.pathPosition = 0;
                     bus.active = false;
+                    bus.startTime = timestamp;
 
-                    // Schedule reactivation based on bus schedule setting
+                    // Schedule reactivation
                     const params = getSimulationParams();
                     setTimeout(() => {
                         bus.active = true;
                         bus.throughputCounted = false;
                         bus.passengers = Math.floor(Math.random() * 21) + 70; // Reset passengers
                     }, params.busInterval);
+                } else if (bus.active && !bus.startTime) {
+                    // Initialize start time for new/reactivated buses
+                    bus.startTime = timestamp;
                 }
             });
 
@@ -913,10 +908,20 @@ const TrafficSimulation = () => {
                                 </div>
                             </div>
                             {/* Chart Section */}
-                            <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{
+                                width: '100%',
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(2, 1fr)',
+                                gap: '16px',
+                                alignItems: 'start'
+                            }}>
                                 <PlotlyChart
                                     totalBusPassengers={totalBusPassengers}
                                     totalCarPassengers={totalCarPassengers}
+                                />
+                                <TravelTimeChart
+                                    busTravelTimes={busTravelTimes}
+                                    carTravelTimes={carTravelTimes}
                                 />
                             </div>
                             {/* Instructions */}

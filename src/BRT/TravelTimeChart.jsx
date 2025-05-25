@@ -1,51 +1,70 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Plotly from 'plotly.js-dist-min';
 
-const PlotlyChart = ({ totalBusPassengers = 0, totalCarPassengers = 0 }) => {
+const TravelTimeChart = ({ busTravelTimes = [], carTravelTimes = [] }) => {
     const plotRef = useRef(null);
     const [dataHistory, setDataHistory] = useState([]);
     const startTimeRef = useRef(Date.now());
 
+    // Convert simulation seconds to real-life minutes
+    const convertToRealTime = (simulationSeconds) => simulationSeconds;
+
+    // Format time display
+    const formatTime = (minutes) => {
+        if (minutes < 60) {
+            return `${minutes.toFixed(1)} min`;
+        }
+        const hours = Math.floor(minutes / 60);
+        const remainingMinutes = minutes % 60;
+        return `${hours}h ${remainingMinutes.toFixed(1)}min`;
+    };
+
     useEffect(() => {
-        const currentTime = (Date.now() - startTimeRef.current) / 1000; // Time in seconds
-        const totalPassengers = totalBusPassengers + totalCarPassengers;
+        const currentTime = (Date.now() - startTimeRef.current) / 1000; // Time in simulation seconds
+
+        // Calculate averages and convert to real-life minutes
+        const avgBusTime = busTravelTimes.length > 0
+            ? convertToRealTime(busTravelTimes.reduce((a, b) => a + b, 0) / busTravelTimes.length)
+            : 0;
+        const avgCarTime = carTravelTimes.length > 0
+            ? convertToRealTime(carTravelTimes.reduce((a, b) => a + b, 0) / carTravelTimes.length)
+            : 0;
 
         // Update data history
         setDataHistory(prev => {
             const newEntry = {
                 time: currentTime,
-                busPassengers: totalBusPassengers,
-                carPassengers: totalCarPassengers,
-                totalPassengers: totalPassengers
+                avgBusTime: avgBusTime,
+                avgCarTime: avgCarTime
             };
 
             // Keep only last 100 data points to prevent memory issues
             const updated = [...prev, newEntry];
             return updated.length > 100 ? updated.slice(-100) : updated;
         });
-    }, [totalBusPassengers, totalCarPassengers]);
+    }, [busTravelTimes, carTravelTimes]);
 
     useEffect(() => {
         if (!plotRef.current || dataHistory.length === 0) return;
 
         const timePoints = dataHistory.map(d => d.time);
-        const busData = dataHistory.map(d => d.busPassengers);
-        const carData = dataHistory.map(d => d.carPassengers);
-        const totalData = dataHistory.map(d => d.totalPassengers);
+        const busData = dataHistory.map(d => d.avgBusTime);
+        const carData = dataHistory.map(d => d.avgCarTime);
 
         const trace1 = {
             type: 'scatter',
             x: timePoints,
             y: busData,
             mode: 'lines+markers',
-            name: 'Bus Passengers',
+            name: 'Bus Travel Time',
             line: {
                 color: 'rgb(55, 128, 191)',
                 width: 3
             },
             marker: {
                 size: 4
-            }
+            },
+            hovertemplate: '%{y:.1f} min<extra></extra>'
         };
 
         const trace2 = {
@@ -53,34 +72,20 @@ const PlotlyChart = ({ totalBusPassengers = 0, totalCarPassengers = 0 }) => {
             x: timePoints,
             y: carData,
             mode: 'lines+markers',
-            name: 'Car Passengers',
+            name: 'Car Travel Time',
             line: {
                 color: 'rgb(219, 64, 82)',
                 width: 2
             },
             marker: {
                 size: 4
-            }
-        };
-
-        const trace3 = {
-            type: 'scatter',
-            x: timePoints,
-            y: totalData,
-            mode: 'lines+markers',
-            name: 'Total Passengers',
-            line: {
-                color: 'rgb(50, 171, 96)',
-                width: 2
             },
-            marker: {
-                size: 4
-            }
+            hovertemplate: '%{y:.1f} min<extra></extra>'
         };
 
         const layout = {
             title: {
-                text: 'Passenger Throughput',
+                text: 'Travel Time',
                 font: {
                     size: 16
                 }
@@ -95,7 +100,7 @@ const PlotlyChart = ({ totalBusPassengers = 0, totalCarPassengers = 0 }) => {
                 }
             },
             yaxis: {
-                title: 'Passengers Delivered',
+                title: 'Minutes',
                 showgrid: true,
                 titlefont: {
                     size: 12
@@ -114,10 +119,24 @@ const PlotlyChart = ({ totalBusPassengers = 0, totalCarPassengers = 0 }) => {
                 r: 20,
                 t: 40,
                 b: 40
-            }
+            },
+            annotations: [{
+                text: '1s = 1min',
+                xref: 'paper',
+                yref: 'paper',
+                x: 1,
+                xanchor: 'right',
+                y: 1,
+                yanchor: 'bottom',
+                showarrow: false,
+                font: {
+                    size: 10,
+                    color: '#666'
+                }
+            }]
         };
 
-        const data = [trace1, trace2, trace3];
+        const data = [trace1, trace2];
 
         // Use Plotly.react for smooth updates
         Plotly.react(plotRef.current, data, layout);
@@ -131,12 +150,12 @@ const PlotlyChart = ({ totalBusPassengers = 0, totalCarPassengers = 0 }) => {
                 x: [],
                 y: [],
                 mode: 'lines+markers',
-                name: 'Bus Passengers'
+                name: 'Bus Travel Time'
             }];
 
             const initialLayout = {
                 title: {
-                    text: 'Passenger Throughput',
+                    text: 'Travel Time',
                     font: {
                         size: 16
                     }
@@ -150,7 +169,7 @@ const PlotlyChart = ({ totalBusPassengers = 0, totalCarPassengers = 0 }) => {
                     }
                 },
                 yaxis: {
-                    title: 'Passengers Delivered',
+                    title: 'Minutes',
                     titlefont: {
                         size: 12
                     }
@@ -160,7 +179,21 @@ const PlotlyChart = ({ totalBusPassengers = 0, totalCarPassengers = 0 }) => {
                     r: 20,
                     t: 40,
                     b: 40
-                }
+                },
+                annotations: [{
+                    text: '1s = 1min',
+                    xref: 'paper',
+                    yref: 'paper',
+                    x: 1,
+                    xanchor: 'right',
+                    y: 1,
+                    yanchor: 'bottom',
+                    showarrow: false,
+                    font: {
+                        size: 10,
+                        color: '#666'
+                    }
+                }]
             };
 
             Plotly.newPlot(plotRef.current, initialData, initialLayout);
@@ -174,6 +207,14 @@ const PlotlyChart = ({ totalBusPassengers = 0, totalCarPassengers = 0 }) => {
         };
     }, []);
 
+
+    // Calculate current averages for display
+    const currentBusAvg = busTravelTimes.length > 0
+        ? convertToRealTime(busTravelTimes.reduce((a, b) => a + b, 0) / busTravelTimes.length)
+        : 0;
+    const currentCarAvg = carTravelTimes.length > 0
+        ? convertToRealTime(carTravelTimes.reduce((a, b) => a + b, 0) / carTravelTimes.length)
+        : 0;
 
     return (
         <div style={{
@@ -189,18 +230,28 @@ const PlotlyChart = ({ totalBusPassengers = 0, totalCarPassengers = 0 }) => {
                 alignItems: 'center',
                 marginBottom: '16px'
             }}>
-                <h3 style={{
-                    fontSize: '18px',
-                    fontWeight: '600'
-                }}>
-                    Passenger Throughput Chart
-                </h3>
+                <div>
+                    <h3 style={{
+                        fontSize: '18px',
+                        fontWeight: '600',
+                        marginBottom: '4px'
+                    }}>
+                        Travel Time Analysis
+                    </h3>
+                    <div style={{
+                        fontSize: '12px',
+                        color: '#666',
+                        fontStyle: 'italic'
+                    }}>
+                        1 simulation second = 1 real minute
+                    </div>
+                </div>
             </div>
-            <div ref={plotRef} id="throughputChart"></div>
+            <div ref={plotRef} id="travelTimeChart"></div>
             <div style={{
                 marginTop: '16px',
                 display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
+                gridTemplateColumns: 'repeat(2, 1fr)',
                 gap: '16px',
                 fontSize: '14px'
             }}>
@@ -209,13 +260,13 @@ const PlotlyChart = ({ totalBusPassengers = 0, totalCarPassengers = 0 }) => {
                         fontWeight: '600',
                         color: '#2563eb'
                     }}>
-                        Bus Passengers
+                        Average Bus Travel Time
                     </div>
                     <div style={{
                         fontSize: '24px',
                         fontWeight: 'bold'
                     }}>
-                        {totalBusPassengers}
+                        {formatTime(currentBusAvg)}
                     </div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
@@ -223,27 +274,13 @@ const PlotlyChart = ({ totalBusPassengers = 0, totalCarPassengers = 0 }) => {
                         fontWeight: '600',
                         color: '#dc2626'
                     }}>
-                        Car Passengers
+                        Average Car Travel Time
                     </div>
                     <div style={{
                         fontSize: '24px',
                         fontWeight: 'bold'
                     }}>
-                        {totalCarPassengers}
-                    </div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                    <div style={{
-                        fontWeight: '600',
-                        color: '#059669'
-                    }}>
-                        Total Passengers
-                    </div>
-                    <div style={{
-                        fontSize: '24px',
-                        fontWeight: 'bold'
-                    }}>
-                        {totalBusPassengers + totalCarPassengers}
+                        {formatTime(currentCarAvg)}
                     </div>
                 </div>
             </div>
@@ -251,4 +288,4 @@ const PlotlyChart = ({ totalBusPassengers = 0, totalCarPassengers = 0 }) => {
     );
 };
 
-export default PlotlyChart;
+export default TravelTimeChart;
