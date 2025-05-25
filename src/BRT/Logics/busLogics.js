@@ -67,8 +67,8 @@ const createBus = (index, pathPosition, settings, scaleFactor, active = true) =>
         y: 0,
         initialPositioning: true,
         active: active,
-        passengers: Math.floor(Math.random() * 21) + 70, // Random passengers between 70-90
-        capacity: 90,
+        passengers: Math.floor(Math.random() * 30) + 20,
+        capacity: 49,
         lastVisitedStop: -1,
         justLeftStop: false,
         busId: index + 1,
