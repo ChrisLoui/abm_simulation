@@ -67,8 +67,8 @@ const createBus = (index, pathPosition, settings, scaleFactor, active = true) =>
         y: 0,
         initialPositioning: true,
         active: active,
-        passengers: Math.floor(Math.random() * 21) + 70, // Random passengers between 70-90
-        capacity: 90,
+        passengers: Math.floor(Math.random() * 30) + 20,
+        capacity: 49,
         lastVisitedStop: -1,
         justLeftStop: false,
         busId: index + 1,
@@ -81,7 +81,15 @@ const createBus = (index, pathPosition, settings, scaleFactor, active = true) =>
 /**
  * Update buses for each animation frame.
  */
-export const updateBuses = (prevBuses, vehicles, busStops, canvasWidth, deltaTime, lanes) => {
+export const updateBuses = (
+    prevBuses, 
+    vehicles, 
+    busStops, 
+    canvasWidth, 
+    deltaTime, 
+    lanes,
+    onPassengersAlighted
+)=> {
     const updatedBuses = [...prevBuses];
 
     // Initialize bus stops if needed
@@ -108,6 +116,11 @@ export const updateBuses = (prevBuses, vehicles, busStops, canvasWidth, deltaTim
     updatedBuses.forEach(bus => {
         if (!bus.active) return;
 
+         // Reset justLeftStop once bus has moved a bit from last stop (example: pathPosition > 0.1)
+        if (bus.justLeftStop && bus.pathPosition > 0.1) {
+            bus.justLeftStop = false;
+        }
+
         if (bus.stoppedAtBusStop >= 0) {
             bus.stopTime += deltaTime;
             const currentStop = busStops[bus.stoppedAtBusStop];
@@ -127,9 +140,20 @@ export const updateBuses = (prevBuses, vehicles, busStops, canvasWidth, deltaTim
                 bus.passengers -= passengersToDrop;
                 bus.passengersDroppedOff = (bus.passengersDroppedOff || 0) + passengersToDrop;
 
+                // // UPDATE TOTAL PASSENGERS ALIGHTED STATE 
+                // setTotalPassengersAlighted(prev => prev + passengersToDrop);
+                
+                // Notify React component of alighted passengers
+                if (onPassengersAlighted) {
+                    onPassengersAlighted(passengersToDrop);
+                }
+
                 // Pick up waiting passengers
                 bus.passengers += passengersToPickUp;
                 currentStop.waitingPassengers = Math.max(0, waitingPassengers - passengersToPickUp);
+
+                // Mark bus as having left this stop
+                 bus.lastVisitedStop = bus.stoppedAtBusStop;
 
                 bus.stoppedAtBusStop = -1;
                 bus.stopTime = 0;
@@ -139,6 +163,8 @@ export const updateBuses = (prevBuses, vehicles, busStops, canvasWidth, deltaTim
             busStops.forEach((stop, stopIndex) => {
                 if (stopIndex === bus.lastVisitedStop || bus.justLeftStop) return;
 
+                
+
                 const busPos = bus.x;
                 const stopPos = stop.x;
                 const stoppingDistance = bus.width * 0.15;
@@ -147,6 +173,8 @@ export const updateBuses = (prevBuses, vehicles, busStops, canvasWidth, deltaTim
                 if (isApproachingFromLeft) {
                     const busLane = lanes[bus.lane];
                     const laneY = getPositionOnPath(busLane.points, bus.pathPosition).y;
+
+                    console.log(`Bus ${bus.busId} at x=${bus.x}, Stop ${stopIndex} at x=${stop.x}, laneY=${laneY}, stopY=${stop.y}`);
 
                     if (Math.abs(laneY - stop.y) < bus.height) {
                         // Only stop if bus is not full or there are passengers waiting

@@ -48,6 +48,8 @@ const TrafficSimulation = () => {
     const throughputHistoryRef = useRef([]);
     const [totalBusPassengers, setTotalBusPassengers] = useState(0);
     const [totalCarPassengers, setTotalCarPassengers] = useState(0);
+    const [totalPassengersAlighted, setTotalPassengersAlighted] = useState(0);
+
 
     const canvasRef = useRef(null);
     const animationRef = useRef(null);
@@ -274,7 +276,17 @@ const TrafficSimulation = () => {
 
         // Update buses and handle their throughput
         setBuses(prevBuses => {
-            const updatedBuses = updateBuses(prevBuses, vehicles, BUS_STOPS, CANVAS_WIDTH, deltaTime, LANES);
+            const updatedBuses = updateBuses(
+                prevBuses, vehicles, 
+                BUS_STOPS, 
+                CANVAS_WIDTH, 
+                deltaTime, 
+                LANES,
+                (passengersAlighted) => {
+                    //Runs every time passengers get off a bus
+                    setTotalPassengersAlighted(prev => prev + passengersAlighted);
+                }
+            );
 
             // Track bus travel times and throughput
             updatedBuses.forEach(bus => {
@@ -745,7 +757,7 @@ const TrafficSimulation = () => {
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                         <span style={{ fontSize: '14px', color: '#2563eb' }}>Bus Passengers:</span>
                                                         <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#2563eb' }}>
-                                                            {totalBusPassengers}
+                                                            {totalBusPassengers + totalPassengersAlighted}
                                                         </span>
                                                     </div>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -754,6 +766,13 @@ const TrafficSimulation = () => {
                                                             {totalCarPassengers}
                                                         </span>
                                                     </div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <span style={{ fontSize: '14px', color: '#2563eb' }}>Total Passengers Alighted:</span>
+                                                        <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#2563eb' }}>
+                                                            {totalPassengersAlighted}
+                                                        </span>
+                                                    </div>
+
                                                     <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '8px' }}>
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                             <span style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>Total:</span>
