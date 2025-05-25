@@ -81,7 +81,15 @@ const createBus = (index, pathPosition, settings, scaleFactor, active = true) =>
 /**
  * Update buses for each animation frame.
  */
-export const updateBuses = (prevBuses, vehicles, busStops, canvasWidth, deltaTime, lanes) => {
+export const updateBuses = (
+    prevBuses, 
+    vehicles, 
+    busStops, 
+    canvasWidth, 
+    deltaTime, 
+    lanes,
+    onPassengersAlighted
+)=> {
     const updatedBuses = [...prevBuses];
 
     // Initialize bus stops if needed
@@ -131,6 +139,14 @@ export const updateBuses = (prevBuses, vehicles, busStops, canvasWidth, deltaTim
                 // Drop off passengers
                 bus.passengers -= passengersToDrop;
                 bus.passengersDroppedOff = (bus.passengersDroppedOff || 0) + passengersToDrop;
+
+                // // UPDATE TOTAL PASSENGERS ALIGHTED STATE 
+                // setTotalPassengersAlighted(prev => prev + passengersToDrop);
+                
+                // Notify React component of alighted passengers
+                if (onPassengersAlighted) {
+                    onPassengersAlighted(passengersToDrop);
+                }
 
                 // Pick up waiting passengers
                 bus.passengers += passengersToPickUp;
