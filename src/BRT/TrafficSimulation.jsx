@@ -21,20 +21,18 @@ import {
     updateVehicles
 } from './Logics/updateFunctions';
 import { renderCanvas, renderSimulation } from './renderLogic';
-import ThroughputChart from './ThroughputChart';
+import PlotlyChart from './ThroughputChart';
 
 const TrafficSimulation = () => {
-    // New setting: carsPerMinute determines how many cars spawn per minute.
+    // Simplified settings with three key parameters
     const [settings, setSettings] = useState({
-        carsPerMinute: 100, // e.g., 100 cars per minute
-        busCount: 5,
-        minSpeed: 1,
-        maxSpeed: 3,
-        randomEvents: true
+        trafficDensity: 'Medium', // Low, Medium, High
+        scenario: 'With Bus Lane', // With Bus Lane, Without Bus Lane
+        busSchedule: '20mins' // 10mins, 20mins, 30mins
     });
+
     const [isRunning, setIsRunning] = useState(false);
     const [isSetup, setIsSetup] = useState(false);
-    // Start with an empty array because cars will spawn dynamically.
     const [vehicles, setVehicles] = useState([]);
     const [buses, setBuses] = useState([]);
     const [driverStats, setDriverStats] = useState({
@@ -47,18 +45,49 @@ const TrafficSimulation = () => {
     const [trafficDensity, setTrafficDensity] = useState(0);
     const [throughputHistory, setThroughputHistory] = useState([]);
     const throughputHistoryRef = useRef([]);
-    const [totalPassengers, setTotalPassengers] = useState(0);
     const [totalBusPassengers, setTotalBusPassengers] = useState(0);
     const [totalCarPassengers, setTotalCarPassengers] = useState(0);
 
     const canvasRef = useRef(null);
     const animationRef = useRef(null);
     const lastTimeRef = useRef(0);
-    const carSpawnerIntervalRef = useRef(null); // Track the car spawner interval
+    const carSpawnerIntervalRef = useRef(null);
     const throughputCanvasRef = useRef(null);
 
     // Calculate scale factor (pixels per meter).
     const scaleFactor = CANVAS_WIDTH / ROAD_LENGTH_METERS;
+
+    // Convert simplified settings to simulation parameters
+    const getSimulationParams = () => {
+        // Traffic Density mapping
+        const densityMap = {
+            'Low': { carsPerMinute: 60, maxSpeed: 4, minSpeed: 2 },
+            'Medium': { carsPerMinute: 120, maxSpeed: 3, minSpeed: 1.5 },
+            'High': { carsPerMinute: 180, maxSpeed: 2, minSpeed: 1 }
+        };
+
+        // Bus Schedule mapping (converted to milliseconds for intervals)
+        const scheduleMap = {
+            '10mins': 10000, // 10 seconds in simulation time
+            '20mins': 20000, // 20 seconds in simulation time
+            '30mins': 30000  // 30 seconds in simulation time
+        };
+
+        // Bus count based on schedule (more frequent = more buses needed)
+        const busCountMap = {
+            '10mins': 6,
+            '20mins': 4,
+            '30mins': 3
+        };
+
+        return {
+            ...densityMap[settings.trafficDensity],
+            busCount: busCountMap[settings.busSchedule],
+            busInterval: scheduleMap[settings.busSchedule],
+            hasBusLane: settings.scenario === 'With Bus Lane',
+            randomEvents: true
+        };
+    };
 
     // Draw the initial empty road.
     useEffect(() => {
@@ -111,8 +140,6 @@ const TrafficSimulation = () => {
             setDriverStats(stats);
 
             // Calculate traffic density
-            // Simple metric: percentage of road filled by cars
-            // More sophisticated metrics could consider distribution
             const density = Math.min(vehicles.length / 100, 1) * 100;
             setTrafficDensity(Math.round(density));
         } else {
@@ -120,23 +147,25 @@ const TrafficSimulation = () => {
         }
     }, [vehicles, buses]);
 
-    const spawnInterval = 60000 / settings.carsPerMinute;
     // Initialization function for simulation elements.
     const initializeTrafficElements = () => {
+        const params = getSimulationParams();
+
         // Clear any previous car spawner interval
         if (carSpawnerIntervalRef.current) {
             clearInterval(carSpawnerIntervalRef.current);
             carSpawnerIntervalRef.current = null;
         }
 
-        // Initialize buses (only one active at start; others schedule in later).
-        const newBuses = initializeBuses(settings, LANES, scaleFactor);
+        // Initialize buses with new parameters
+        const newBuses = initializeBuses(params, LANES, scaleFactor);
         setBuses(newBuses);
 
         // Start with an empty vehicles array for dynamic car spawner.
         setVehicles([]);
 
         // Start the car spawner with current settings
+        const spawnInterval = 60000 / params.carsPerMinute; // Convert cars per minute to interval
         carSpawnerIntervalRef.current = setInterval(() => {
             setVehicles(prevVehicles => {
                 if (!prevVehicles) return [];
@@ -148,7 +177,7 @@ const TrafficSimulation = () => {
                 };
 
                 // Calculate maximum allowed cars per lane based on settings
-                const maxCarsPerLane = Math.floor(settings.carsPerMinute / 2);
+                const maxCarsPerLane = Math.floor(params.carsPerMinute / 2);
 
                 // Calculate spawn probability based on traffic density
                 const densityFactor1 = 1 - (laneDensity[1] / maxCarsPerLane);
@@ -156,7 +185,7 @@ const TrafficSimulation = () => {
 
                 // Only spawn new car if there's room in at least one lane
                 if (densityFactor1 > 0 || densityFactor2 > 0) {
-                    const newCar = createCar(settings, LANES, scaleFactor);
+                    const newCar = createCar(params, LANES, scaleFactor);
 
                     // Adjust spawn probability based on lane density
                     const spawnProbability = newCar.lane === 1 ? densityFactor1 : densityFactor2;
@@ -168,7 +197,7 @@ const TrafficSimulation = () => {
 
                 return prevVehicles;
             });
-        }, 1000); // Check every second instead of fixed interval
+        }, spawnInterval);
 
         setDriverStats({ polite: 0, neutral: 0, aggressive: 0 });
         setIsSetup(true);
@@ -230,24 +259,6 @@ const TrafficSimulation = () => {
                 setTotalCarPassengers(prev => prev + (completedCars * 3));
             }
 
-            // Update throughput data every second (1000 ticks)
-            if (timestamp % 1000 < deltaTime) {
-                const throughputData = updateThroughput(updated, buses);
-                if (throughputData) {
-                    // Update throughput history
-                    setThroughputHistory(prev => {
-                        const newHistory = [...prev, throughputData];
-                        // Keep only the last 30 data points
-                        return newHistory.slice(-30);
-                    });
-                    throughputHistoryRef.current = [...throughputHistoryRef.current, throughputData].slice(-30);
-
-                    // Update passenger counts from throughput data
-                    setTotalBusPassengers(prev => prev + throughputData.buses);
-                    setTotalCarPassengers(prev => prev + throughputData.cars);
-                }
-            }
-
             // Monitor for stuck cars but don't remove them
             updated = updated.map(car => {
                 if (car.type === 'car') {
@@ -289,12 +300,14 @@ const TrafficSimulation = () => {
                     setTotalBusPassengers(prev => prev + passengersExiting);
                     bus.pathPosition = 0;
                     bus.active = false;
-                    // Schedule reactivation
+
+                    // Schedule reactivation based on bus schedule setting
+                    const params = getSimulationParams();
                     setTimeout(() => {
                         bus.active = true;
                         bus.throughputCounted = false;
                         bus.passengers = Math.floor(Math.random() * 21) + 70; // Reset passengers
-                    }, 10000); // 10 seconds delay
+                    }, params.busInterval);
                 }
             });
 
@@ -316,227 +329,661 @@ const TrafficSimulation = () => {
         animationRef.current = requestAnimationFrame(animate);
     };
 
-    const handleSettingChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setSettings({
-            ...settings,
-            [name]: type === 'checkbox' ? checked : Number(value)
-        });
+    const handleSettingChange = (settingName, value) => {
+        setSettings(prev => ({
+            ...prev,
+            [settingName]: value
+        }));
     };
 
-    // In applySettings, properly clean up and re-initialize
-    const applySettings = () => {
-        // Reset simulation with new settings
-        setIsSetup(false);
-        setIsRunning(false);
-        if (animationRef.current) {
-            cancelAnimationFrame(animationRef.current);
-        }
-        if (carSpawnerIntervalRef.current) {
-            clearInterval(carSpawnerIntervalRef.current);
-        }
-
-        renderCanvas(canvasRef.current);
-        setShowSettings(false);
-
-        // Re-initialize with new settings
-        initializeTrafficElements();
-    };
-
-    // In the cleanup useEffect
-    useEffect(() => {
-        renderCanvas(canvasRef.current);
-        return () => {
-            if (animationRef.current) {
-                cancelAnimationFrame(animationRef.current);
-            }
-            if (carSpawnerIntervalRef.current) {
-                clearInterval(carSpawnerIntervalRef.current);
-            }
-        };
-    }, []);
-
-    // Update passenger data in the visualization component
-    useEffect(() => {
-        if (typeof window !== 'undefined' && window.updatePassengerData) {
-            window.updatePassengerData(vehicles, buses);
-        }
-    }, [vehicles, buses]);
-
+    const currentParams = getSimulationParams();
     return (
-        <div className="flex flex-col items-center p-4 bg-gray-100 rounded-lg">
-            <h2 className="text-2xl font-bold mb-2">
-                Scenario 1 - Road with Bus Lane (2.6km)
-            </h2>
-            <p className="text-sm text-gray-600 mb-4">
-                Scheduled Bus Service: One bus every 30 simulation minutes (30 seconds here).
-            </p>
-
-            <div className="relative mb-4">
-                <canvas
-                    ref={canvasRef}
-                    width={CANVAS_WIDTH}
-                    height={CANVAS_HEIGHT}
-                    className="border border-gray-300 bg-white rounded shadow-md"
-                />
-                <div className="absolute top-4 right-4 flex space-x-2">
-                    <button
-                        onClick={handleSetup}
-                        className="bg-green-500 text-white p-2 rounded hover:bg-green-600 transition-colors"
-                        title="Setup Simulation"
-                    >
-                        <RefreshCw size={20} />
-                    </button>
-                    <button
-                        onClick={toggleSimulation}
-                        className={`${isRunning ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'} text-white p-2 rounded transition-colors`}
-                        title={isRunning ? "Pause Simulation" : "Start Simulation"}
-                    >
-                        {isRunning ? <Pause size={20} /> : <Play size={20} />}
-                    </button>
+        <div
+            style={{
+                minHeight: '100vh',
+                padding: '8px',
+                background: 'linear-gradient(to bottom right, #eff6ff, #e0e7ff)'
+            }}
+        >
+            <div style={{ maxWidth: '1600px', margin: '0 auto' }}>
+                {/* Header */}
+                <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                    <h1 style={{
+                        fontSize: '32px',
+                        fontWeight: 'bold',
+                        color: '#111827',
+                        marginBottom: '8px'
+                    }}>
+                        BRT Traffic Simulation
+                    </h1>
+                    <div style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '16px',
+                        fontSize: '16px'
+                    }}>
+                        <span style={{
+                            padding: '4px 12px',
+                            backgroundColor: '#dbeafe',
+                            color: '#1e40af',
+                            borderRadius: '20px',
+                            fontWeight: '500',
+                            fontSize: '14px'
+                        }}>
+                            {settings.scenario}
+                        </span>
+                        <span style={{
+                            padding: '4px 12px',
+                            backgroundColor: '#dcfce7',
+                            color: '#166534',
+                            borderRadius: '20px',
+                            fontWeight: '500',
+                            fontSize: '14px'
+                        }}>
+                            {settings.trafficDensity} Traffic
+                        </span>
+                        <span style={{
+                            padding: '4px 12px',
+                            backgroundColor: '#f3e8ff',
+                            color: '#7c2d12',
+                            borderRadius: '20px',
+                            fontWeight: '500',
+                            fontSize: '14px'
+                        }}>
+                            Every {settings.busSchedule}
+                        </span>
+                    </div>
                 </div>
-                {showSettings && (
-                    <div className="absolute top-4 left-4 bg-white p-4 rounded shadow-lg border border-gray-300 z-10">
-                        <h3 className="text-lg font-semibold mb-4">Simulation Settings</h3>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Cars per Minute
-                                </label>
-                                <input
-                                    type="range"
-                                    name="carsPerMinute"
-                                    min="10"
-                                    max="200"
-                                    step="10"
-                                    value={settings.carsPerMinute}
-                                    onChange={handleSettingChange}
-                                    className="w-full"
-                                />
-                                <div className="text-sm text-gray-600 mt-1">
-                                    {settings.carsPerMinute} cars per minute
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    {/* Top Section: Settings and Simulation Side by Side */}
+                    <div style={{ display: 'flex', flexDirection: 'row', gap: '24px', alignItems: 'flex-start' }}>
+                        {/* Settings Panel */}
+                        <div style={{ width: '100%', maxWidth: '384px', flexShrink: 0 }}>
+                            <div
+                                style={{
+                                    backgroundColor: 'white',
+                                    borderRadius: '12px',
+                                    padding: '24px',
+                                    border: '1px solid #e5e7eb',
+                                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+                                }}
+                            >
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    marginBottom: '24px'
+                                }}>
+                                    <h2 style={{
+                                        fontSize: '20px',
+                                        fontWeight: '600',
+                                        color: '#1f2937'
+                                    }}>
+                                        Settings
+                                    </h2>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button
+                                            onClick={handleSetup}
+                                            style={{
+                                                backgroundColor: '#10b981',
+                                                color: 'white',
+                                                padding: '8px',
+                                                borderRadius: '8px',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            title="Reset & Apply Settings"
+                                            onMouseEnter={(e) => e.target.style.backgroundColor = '#059669'}
+                                            onMouseLeave={(e) => e.target.style.backgroundColor = '#10b981'}
+                                        >
+                                            <RefreshCw size={18} />
+                                        </button>
+                                        <button
+                                            onClick={toggleSimulation}
+                                            style={{
+                                                backgroundColor: isRunning ? '#ef4444' : '#3b82f6',
+                                                color: 'white',
+                                                padding: '8px',
+                                                borderRadius: '8px',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            title={isRunning ? "Pause Simulation" : "Start Simulation"}
+                                            onMouseEnter={(e) => e.target.style.backgroundColor = isRunning ? '#dc2626' : '#2563eb'}
+                                            onMouseLeave={(e) => e.target.style.backgroundColor = isRunning ? '#ef4444' : '#3b82f6'}
+                                        >
+                                            {isRunning ? <Pause size={18} /> : <Play size={18} />}
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Number of Buses
-                                </label>
-                                <input
-                                    type="range"
-                                    name="busCount"
-                                    min="1"
-                                    max="10"
-                                    value={settings.busCount}
-                                    onChange={handleSettingChange}
-                                    className="w-full"
-                                />
-                                <div className="text-sm text-gray-600 mt-1">
-                                    {settings.busCount} buses
-                                </div>
-                            </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                    {/* Traffic Density */}
+                                    <div>
+                                        <h3 style={{
+                                            fontSize: '12px',
+                                            fontWeight: '600',
+                                            color: '#374151',
+                                            marginBottom: '12px',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.05em'
+                                        }}>
+                                            Traffic Density
+                                        </h3>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {[
+                                                { value: 'Low', color: 'green', desc: '60 cars/min' },
+                                                { value: 'Medium', color: 'yellow', desc: '120 cars/min' },
+                                                { value: 'High', color: 'red', desc: '180 cars/min' }
+                                            ].map(({ value, color, desc }) => (
+                                                <label
+                                                    key={value}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        padding: '12px',
+                                                        backgroundColor: '#f9fafb',
+                                                        borderRadius: '8px',
+                                                        cursor: 'pointer',
+                                                        transition: 'background-color 0.2s'
+                                                    }}
+                                                    onMouseEnter={(e) => e.target.style.backgroundColor = '#f3f4f6'}
+                                                    onMouseLeave={(e) => e.target.style.backgroundColor = '#f9fafb'}
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name="trafficDensity"
+                                                        value={value}
+                                                        checked={settings.trafficDensity === value}
+                                                        onChange={(e) => handleSettingChange('trafficDensity', e.target.value)}
+                                                        style={{ marginRight: '12px' }}
+                                                    />
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                            <span style={{ fontWeight: '500', color: '#1f2937', fontSize: '14px' }}>
+                                                                {value}
+                                                            </span>
+                                                            <span style={{
+                                                                padding: '2px 8px',
+                                                                fontSize: '12px',
+                                                                borderRadius: '4px',
+                                                                backgroundColor: color === 'green' ? '#dcfce7' : color === 'yellow' ? '#fef3c7' : '#fee2e2',
+                                                                color: color === 'green' ? '#166534' : color === 'yellow' ? '#92400e' : '#991b1b'
+                                                            }}>
+                                                                {desc}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {/* Scenario */}
+                                    <div>
+                                        <h3 style={{
+                                            fontSize: '12px',
+                                            fontWeight: '600',
+                                            color: '#374151',
+                                            marginBottom: '12px',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.05em'
+                                        }}>
+                                            Lane Configuration
+                                        </h3>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {[
+                                                { value: 'With Bus Lane', icon: '🚌', desc: 'Dedicated BRT lane' },
+                                                { value: 'Without Bus Lane', icon: '🚗', desc: 'Mixed traffic' }
+                                            ].map(({ value, icon, desc }) => (
+                                                <label
+                                                    key={value}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        padding: '12px',
+                                                        backgroundColor: '#f9fafb',
+                                                        borderRadius: '8px',
+                                                        cursor: 'pointer',
+                                                        transition: 'background-color 0.2s'
+                                                    }}
+                                                    onMouseEnter={(e) => e.target.style.backgroundColor = '#f3f4f6'}
+                                                    onMouseLeave={(e) => e.target.style.backgroundColor = '#f9fafb'}
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name="scenario"
+                                                        value={value}
+                                                        checked={settings.scenario === value}
+                                                        onChange={(e) => handleSettingChange('scenario', e.target.value)}
+                                                        style={{ marginRight: '12px' }}
+                                                    />
+                                                    <span style={{ fontSize: '16px', marginRight: '8px' }}>{icon}</span>
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ fontWeight: '500', color: '#1f2937', fontSize: '14px' }}>
+                                                            {value}
+                                                        </div>
+                                                        <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                                            {desc}
+                                                        </div>
+                                                    </div>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Minimum Speed (m/s)
-                                </label>
-                                <input
-                                    type="range"
-                                    name="minSpeed"
-                                    min="1"
-                                    max="5"
-                                    step="0.5"
-                                    value={settings.minSpeed}
-                                    onChange={handleSettingChange}
-                                    className="w-full"
-                                />
-                                <div className="text-sm text-gray-600 mt-1">
-                                    {settings.minSpeed} m/s
-                                </div>
-                            </div>
+                                    {/* Bus Schedule */}
+                                    <div>
+                                        <h3 style={{
+                                            fontSize: '12px',
+                                            fontWeight: '600',
+                                            color: '#374151',
+                                            marginBottom: '12px',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.05em'
+                                        }}>
+                                            Bus Frequency
+                                        </h3>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {[
+                                                { value: '10mins', buses: 6, desc: 'High frequency' },
+                                                { value: '20mins', buses: 4, desc: 'Medium frequency' },
+                                                { value: '30mins', buses: 3, desc: 'Low frequency' }
+                                            ].map(({ value, buses, desc }) => (
+                                                <label
+                                                    key={value}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        padding: '12px',
+                                                        backgroundColor: '#f9fafb',
+                                                        borderRadius: '8px',
+                                                        cursor: 'pointer',
+                                                        transition: 'background-color 0.2s'
+                                                    }}
+                                                    onMouseEnter={(e) => e.target.style.backgroundColor = '#f3f4f6'}
+                                                    onMouseLeave={(e) => e.target.style.backgroundColor = '#f9fafb'}
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name="busSchedule"
+                                                        value={value}
+                                                        checked={settings.busSchedule === value}
+                                                        onChange={(e) => handleSettingChange('busSchedule', e.target.value)}
+                                                        style={{ marginRight: '12px' }}
+                                                    />
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                            <span style={{ fontWeight: '500', color: '#1f2937', fontSize: '14px' }}>
+                                                                Every {value}
+                                                            </span>
+                                                            <span style={{
+                                                                padding: '2px 8px',
+                                                                fontSize: '12px',
+                                                                backgroundColor: '#dbeafe',
+                                                                color: '#1e40af',
+                                                                borderRadius: '4px'
+                                                            }}>
+                                                                {buses} buses
+                                                            </span>
+                                                        </div>
+                                                        <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                                            {desc}
+                                                        </div>
+                                                    </div>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Maximum Speed (m/s)
-                                </label>
-                                <input
-                                    type="range"
-                                    name="maxSpeed"
-                                    min="1"
-                                    max="5"
-                                    step="0.5"
-                                    value={settings.maxSpeed}
-                                    onChange={handleSettingChange}
-                                    className="w-full"
-                                />
-                                <div className="text-sm text-gray-600 mt-1">
-                                    {settings.maxSpeed} m/s
+                                    {/* System Parameters */}
+                                    <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
+                                        <h3 style={{
+                                            fontSize: '12px',
+                                            fontWeight: '600',
+                                            color: '#374151',
+                                            marginBottom: '12px',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.05em'
+                                        }}>
+                                            Calculated Parameters
+                                        </h3>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '14px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '4px', paddingBottom: '4px' }}>
+                                                <span style={{ color: '#6b7280' }}>Cars per minute:</span>
+                                                <span style={{ fontWeight: '500' }}>{currentParams.carsPerMinute}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '4px', paddingBottom: '4px' }}>
+                                                <span style={{ color: '#6b7280' }}>Number of buses:</span>
+                                                <span style={{ fontWeight: '500' }}>{currentParams.busCount}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '4px', paddingBottom: '4px' }}>
+                                                <span style={{ color: '#6b7280' }}>Speed range:</span>
+                                                <span style={{ fontWeight: '500' }}>{currentParams.minSpeed}-{currentParams.maxSpeed} m/s</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+                            {/* Live Stats */}
+                            {isSetup && (
+                                <div
+                                    style={{
+                                        marginTop: '24px',
+                                        backgroundColor: 'white',
+                                        borderRadius: '12px',
+                                        padding: '24px',
+                                        border: '1px solid #e5e7eb',
+                                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                                        display: 'flex',
+                                        flexDirection: 'row',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'flex-start'
+                                    }}
+                                >
+                                    {/* Live Statistics Section */}
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <h3 style={{
+                                            fontSize: '18px',
+                                            fontWeight: '600',
+                                            color: '#1f2937',
+                                            marginBottom: '16px'
+                                        }}>
+                                            Live Statistics
+                                        </h3>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <span style={{ fontSize: '14px', color: '#6b7280' }}>Active Buses</span>
+                                                <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#2563eb' }}>
+                                                    {activeBusCount}/{currentParams.busCount}
+                                                </span>
+                                            </div>
+
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <span style={{ fontSize: '14px', color: '#6b7280' }}>Total Vehicles</span>
+                                                <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#1f2937' }}>
+                                                    {vehicles.length}
+                                                </span>
+                                            </div>
+
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <span style={{ fontSize: '14px', color: '#6b7280' }}>Traffic Density</span>
+                                                <span style={{
+                                                    fontSize: '18px',
+                                                    fontWeight: 'bold',
+                                                    color: trafficDensity > 75 ? '#dc2626' : trafficDensity > 50 ? '#d97706' : '#059669'
+                                                }}>
+                                                    {trafficDensity}%
+                                                </span>
+                                            </div>
+
+                                            <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px', marginTop: '12px' }}>
+                                                <h4 style={{ fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                                                    Driver Behavior
+                                                </h4>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                                                        <span style={{ color: '#2563eb' }}>Polite:</span>
+                                                        <span style={{ fontWeight: '500' }}>{driverStats.polite}</span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                                                        <span style={{ color: '#059669' }}>Neutral:</span>
+                                                        <span style={{ fontWeight: '500' }}>{driverStats.neutral}</span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                                                        <span style={{ color: '#dc2626' }}>Aggressive:</span>
+                                                        <span style={{ fontWeight: '500' }}>{driverStats.aggressive}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px', marginTop: '12px' }}>
+                                                <h4 style={{ fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                                                    Passenger Throughput
+                                                </h4>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <span style={{ fontSize: '14px', color: '#2563eb' }}>Bus Passengers:</span>
+                                                        <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#2563eb' }}>
+                                                            {totalBusPassengers}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <span style={{ fontSize: '14px', color: '#059669' }}>Car Passengers:</span>
+                                                        <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#059669' }}>
+                                                            {totalCarPassengers}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '8px' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                            <span style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>Total:</span>
+                                                            <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#7c2d12' }}>
+                                                                {totalBusPassengers + totalCarPassengers}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                        <div className="mt-4 text-sm text-gray-600">
-                            <p>Click the setup button to apply these settings and reset the simulation.</p>
+                        {/* Main Simulation Area */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div
+                                style={{
+                                    backgroundColor: 'white',
+                                    borderRadius: '12px',
+                                    padding: '24px',
+                                    border: '1px solid #e5e7eb',
+                                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                                    marginBottom: '24px'
+                                }}
+                            >
+                                <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'space-between',
+                                    marginBottom: '16px',
+                                    gap: '8px'
+                                }}>
+                                    <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#1f2937' }}>
+                                        Traffic Simulation
+                                    </h2>
+                                    {!isSetup && (
+                                        <div style={{
+                                            fontSize: '14px',
+                                            color: '#6b7280',
+                                            backgroundColor: '#f3f4f6',
+                                            padding: '4px 12px',
+                                            borderRadius: '20px',
+                                            alignSelf: 'flex-start'
+                                        }}>
+                                            Click setup to begin
+                                        </div>
+                                    )}
+                                    {isSetup && !isRunning && (
+                                        <div style={{
+                                            fontSize: '14px',
+                                            color: '#ea580c',
+                                            backgroundColor: '#fed7aa',
+                                            padding: '4px 12px',
+                                            borderRadius: '20px',
+                                            alignSelf: 'flex-start'
+                                        }}>
+                                            Simulation paused
+                                        </div>
+                                    )}
+                                    {isSetup && isRunning && (
+                                        <div style={{
+                                            fontSize: '14px',
+                                            color: '#059669',
+                                            backgroundColor: '#d1fae5',
+                                            padding: '4px 12px',
+                                            borderRadius: '20px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            alignSelf: 'flex-start'
+                                        }}>
+                                            <div style={{
+                                                width: '8px',
+                                                height: '8px',
+                                                backgroundColor: '#10b981',
+                                                borderRadius: '50%',
+                                                marginRight: '8px',
+                                                animation: 'pulse 2s infinite'
+                                            }}></div>
+                                            Running
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div style={{ display: 'flex', justifyContent: 'center', overflowX: 'auto' }}>
+                                    <canvas
+                                        ref={canvasRef}
+                                        width={CANVAS_WIDTH}
+                                        height={CANVAS_HEIGHT}
+                                        style={{
+                                            border: '2px solid #d1d5db',
+                                            backgroundColor: 'white',
+                                            borderRadius: '8px',
+                                            boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)',
+                                            maxWidth: '100%',
+                                            height: 'auto'
+                                        }}
+                                    />
+                                </div>
+
+                                <div style={{ marginTop: '16px', textAlign: 'center' }}>
+                                    <div style={{
+                                        display: 'inline-flex',
+                                        flexWrap: 'wrap',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '24px',
+                                        fontSize: '14px',
+                                        color: '#6b7280'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                                            <div style={{
+                                                width: '12px',
+                                                height: '8px',
+                                                backgroundColor: '#3b82f6',
+                                                borderRadius: '2px',
+                                                marginRight: '8px'
+                                            }}></div>
+                                            <span>Buses</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                                            <div style={{
+                                                width: '12px',
+                                                height: '8px',
+                                                backgroundColor: '#ef4444',
+                                                borderRadius: '2px',
+                                                marginRight: '8px'
+                                            }}></div>
+                                            <span>Cars</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                                            <div style={{
+                                                width: '12px',
+                                                height: '8px',
+                                                backgroundColor: '#fbbf24',
+                                                borderRadius: '2px',
+                                                marginRight: '8px'
+                                            }}></div>
+                                            <span>Bus Stops</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                                            <div style={{
+                                                width: '12px',
+                                                height: '4px',
+                                                backgroundColor: '#9ca3af',
+                                                marginRight: '8px'
+                                            }}></div>
+                                            <span>Road Lanes</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {/* Chart Section */}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <PlotlyChart
+                                    totalBusPassengers={totalBusPassengers}
+                                    totalCarPassengers={totalCarPassengers}
+                                />
+                            </div>
+                            {/* Instructions */}
+                            <div
+                                style={{
+                                    marginTop: '32px',
+                                    backgroundColor: 'white',
+                                    borderRadius: '12px',
+                                    padding: '24px',
+                                    border: '1px solid #e5e7eb',
+                                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+                                }}
+                            >
+                                <h3 style={{
+                                    fontSize: '18px',
+                                    fontWeight: '600',
+                                    color: '#1f2937',
+                                    marginBottom: '16px'
+                                }}>
+                                    How to Use This Simulation
+                                </h3>
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                                    gap: '24px',
+                                    fontSize: '14px',
+                                    color: '#6b7280'
+                                }}>
+                                    <div>
+                                        <h4 style={{ fontWeight: '500', color: '#1f2937', marginBottom: '8px' }}>
+                                            🎛️ Configure Settings
+                                        </h4>
+                                        <p>Choose traffic density (Low/Medium/High), lane configuration (with or without BRT), and bus frequency to test different scenarios.</p>
+                                    </div>
+                                    <div>
+                                        <h4 style={{ fontWeight: '500', color: '#1f2937', marginBottom: '8px' }}>
+                                            ▶️ Run Simulation
+                                        </h4>
+                                        <p>Click the green setup button to apply settings, then the blue play button to start the traffic simulation and observe real-time behavior.</p>
+                                    </div>
+                                    <div>
+                                        <h4 style={{ fontWeight: '500', color: '#1f2937', marginBottom: '8px' }}>
+                                            📊 Analyze Results
+                                        </h4>
+                                        <p>Monitor passenger throughput in the chart to compare efficiency between scenarios and understand BRT benefits.</p>
+                                    </div>
+                                </div>
+
+                                <div style={{
+                                    marginTop: '24px',
+                                    padding: '16px',
+                                    backgroundColor: '#eff6ff',
+                                    borderRadius: '8px'
+                                }}>
+                                    <h4 style={{ fontWeight: '500', color: '#1e40af', marginBottom: '8px' }}>
+                                        💡 Research Tips
+                                    </h4>
+                                    <p style={{ fontSize: '14px', color: '#1e40af' }}>
+                                        Compare scenarios systematically: try the same traffic density with and without bus lanes,
+                                        then test different bus frequencies. Look for the passenger throughput "sweet spot" that
+                                        maximizes efficiency while considering operational costs.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                )}
-                {isSetup && (
-                    <div className="absolute top-4 left-4 bg-white p-2 rounded shadow-lg border border-gray-300">
-                        <div className="text-xs font-semibold mb-1">Simulation Stats:</div>
-                        <div className="text-xs text-blue-600 mb-1">
-                            Active Buses: <span className="font-semibold">{activeBusCount}/{settings.busCount}</span>
-                        </div>
-                        <div className="text-xs">
-                            Polite Drivers: <span className="font-semibold text-blue-600">{driverStats.polite}</span>
-                        </div>
-                        <div className="text-xs">
-                            Neutral Drivers: <span className="font-semibold text-green-600">{driverStats.neutral}</span>
-                        </div>
-                        <div className="text-xs">
-                            Aggressive Drivers: <span className="font-semibold text-red-600">{driverStats.aggressive}</span>
-                        </div>
-                        <div className="text-xs mt-1">
-                            Total Vehicles: <span className="font-semibold">{vehicles.length}</span>
-                        </div>
-                        <div className="text-xs mt-1">
-                            Traffic Density:
-                            <span className={`font-semibold ml-1 ${trafficDensity > 75 ? 'text-red-600' :
-                                trafficDensity > 50 ? 'text-yellow-600' :
-                                    'text-green-600'
-                                }`}>
-                                {trafficDensity}%
-                            </span>
-                        </div>
-                        <div className="text-xs mt-1">
-                            Bus Passengers Delivered: <span className="font-semibold text-blue-600">{totalBusPassengers}</span>
-                        </div>
-                        <div className="text-xs mt-1">
-                            Car Passengers Delivered: <span className="font-semibold text-green-600">{totalCarPassengers}</span>
-                        </div>
-                        <div className="text-xs mt-1 font-semibold">
-                            Total Passengers: <span className="text-purple-600">{totalBusPassengers + totalCarPassengers}</span>
-                        </div>
-                    </div>
-                )}
-                {/* <div className="absolute top-4 right-4" style={{ marginTop: '50px' }}>
-                    <ThroughputChart throughputHistory={throughputHistory} />
-                </div> */}
-            </div>
-            <div className="text-sm text-gray-600 max-w-md">
-                <p className="mb-2">
-                    This simulation recreates Scenario 1 from the reference image, showing cars and buses navigating a road with a dedicated bus lane.
-                </p>
-                <p className="mb-2">
-                    <strong>Instructions:</strong> Click the setup button <RefreshCw size={16} className="inline" /> to initialize the simulation with current settings. Then click the play button <Play size={16} className="inline" /> to start the simulation.
-                </p>
-                <p className="mb-2">
-                    Buses (blue) follow a schedule with one bus every 30 simulation minutes (30 seconds here). Each bus stops briefly at bus stops.
-                </p>
-                <p className="mb-2">
-                    Cars now spawn dynamically at a rate of <strong>{settings.carsPerMinute} cars per minute</strong> from the left side.
-                </p>
-                <p>
-                    Car behavior types vary: polite (rarely change lanes), neutral (change when necessary), and aggressive (change frequently).
-                </p>
+                </div>
             </div>
         </div>
     );

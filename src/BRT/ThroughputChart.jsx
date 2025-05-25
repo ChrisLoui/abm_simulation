@@ -1,65 +1,240 @@
-import React from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import React, { useEffect, useRef, useState } from 'react';
+import Plotly from 'plotly.js-dist-min';
 
-const ThroughputChart = ({ throughputHistory }) => {
-    // Transform data for Recharts
-    const chartData = throughputHistory.map(data => {
-        const timeInSeconds = Math.floor((Date.now() - data.timestamp) / 1000);
-        const timeInMinutes = timeInSeconds / 3.12; // Convert to minutes (10 seconds = 3.12 minutes)
-        return {
-            time: timeInMinutes,
-            totalPassengers: data.totalPassengers || 0
+const PlotlyChart = ({ totalBusPassengers = 0, totalCarPassengers = 0 }) => {
+    const plotRef = useRef(null);
+    const [dataHistory, setDataHistory] = useState([]);
+    const startTimeRef = useRef(Date.now());
+
+    useEffect(() => {
+        const currentTime = (Date.now() - startTimeRef.current) / 1000; // Time in seconds
+        const totalPassengers = totalBusPassengers + totalCarPassengers;
+
+        // Update data history
+        setDataHistory(prev => {
+            const newEntry = {
+                time: currentTime,
+                busPassengers: totalBusPassengers,
+                carPassengers: totalCarPassengers,
+                totalPassengers: totalPassengers
+            };
+
+            // Keep only last 100 data points to prevent memory issues
+            const updated = [...prev, newEntry];
+            return updated.length > 100 ? updated.slice(-100) : updated;
+        });
+    }, [totalBusPassengers, totalCarPassengers]);
+
+    useEffect(() => {
+        if (!plotRef.current || dataHistory.length === 0) return;
+
+        const timePoints = dataHistory.map(d => d.time);
+        const busData = dataHistory.map(d => d.busPassengers);
+        const carData = dataHistory.map(d => d.carPassengers);
+        const totalData = dataHistory.map(d => d.totalPassengers);
+
+        const trace1 = {
+            type: 'scatter',
+            x: timePoints,
+            y: busData,
+            mode: 'lines+markers',
+            name: 'Bus Passengers',
+            line: {
+                color: 'rgb(55, 128, 191)',
+                width: 3
+            },
+            marker: {
+                size: 4
+            }
         };
-    }).slice(-30); // Show last 30 data points
 
-    const formatTime = (value) => {
-        if (typeof value === 'number' && !isNaN(value)) {
-            return value.toFixed(2);
+        const trace2 = {
+            type: 'scatter',
+            x: timePoints,
+            y: carData,
+            mode: 'lines+markers',
+            name: 'Car Passengers',
+            line: {
+                color: 'rgb(219, 64, 82)',
+                width: 2
+            },
+            marker: {
+                size: 4
+            }
+        };
+
+        const trace3 = {
+            type: 'scatter',
+            x: timePoints,
+            y: totalData,
+            mode: 'lines+markers',
+            name: 'Total Passengers',
+            line: {
+                color: 'rgb(50, 171, 96)',
+                width: 2
+            },
+            marker: {
+                size: 4
+            }
+        };
+
+        const layout = {
+            title: 'Passenger Throughput Over Time',
+            width: 600,
+            height: 400,
+            xaxis: {
+                title: 'Time (seconds)',
+                showgrid: true
+            },
+            yaxis: {
+                title: 'Cumulative Passengers Delivered',
+                showgrid: true
+            },
+            legend: {
+                x: 0,
+                y: 1,
+                bgcolor: 'rgba(255, 255, 255, 0.8)'
+            },
+            margin: {
+                l: 60,
+                r: 30,
+                t: 60,
+                b: 60
+            }
+        };
+
+        const data = [trace1, trace2, trace3];
+
+        // Use Plotly.react for smooth updates
+        Plotly.react(plotRef.current, data, layout);
+    }, [dataHistory]);
+
+    useEffect(() => {
+        // Initialize empty plot
+        if (plotRef.current) {
+            const initialData = [{
+                type: 'scatter',
+                x: [],
+                y: [],
+                mode: 'lines+markers',
+                name: 'Bus Passengers'
+            }];
+
+            const initialLayout = {
+                title: 'Passenger Throughput Over Time',
+                width: 600,
+                height: 400,
+                xaxis: { title: 'Time (seconds)' },
+                yaxis: { title: 'Cumulative Passengers Delivered' }
+            };
+
+            Plotly.newPlot(plotRef.current, initialData, initialLayout);
         }
-        return '0.00';
+
+        // Cleanup function
+        return () => {
+            if (plotRef.current) {
+                Plotly.purge(plotRef.current);
+            }
+        };
+    }, []);
+
+    const resetChart = () => {
+        setDataHistory([]);
+        startTimeRef.current = Date.now();
     };
 
     return (
         <div style={{
-            width: '500px',
-            height: '200px',
-            backgroundColor: 'rgba(255, 255, 255, 0.8)',
-            padding: '10px',
-            borderRadius: '5px',
-            border: '1px solid #000'
+            padding: '16px',
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+            marginTop: '16px'
         }}>
-            <h3 style={{ fontSize: '14px', margin: '0 0 10px 0', textAlign: 'center' }}>Total Passenger Throughput</h3>
-            <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                    data={chartData}
-                    margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+            <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '16px'
+            }}>
+                <h3 style={{
+                    fontSize: '18px',
+                    fontWeight: '600'
+                }}>
+                    Passenger Throughput Chart
+                </h3>
+                <button
+                    onClick={resetChart}
+                    style={{
+                        backgroundColor: '#6b7280',
+                        color: 'white',
+                        padding: '4px 12px',
+                        borderRadius: '4px',
+                        fontSize: '14px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.target.style.backgroundColor = '#4b5563'}
+                    onMouseLeave={(e) => e.target.style.backgroundColor = '#6b7280'}
                 >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis
-                        dataKey="time"
-                        label={{ value: 'Time (minutes)', position: 'bottom' }}
-                        domain={['dataMin', 'dataMax']}
-                        tickFormatter={formatTime}
-                    />
-                    <YAxis
-                        label={{ value: 'Total Passengers', angle: -90, position: 'left' }}
-                    />
-                    <Tooltip
-                        formatter={(value) => [`${value} passengers`, 'Total Passengers']}
-                        labelFormatter={(label) => `${formatTime(label)} minutes`}
-                    />
-                    <Line
-                        type="monotone"
-                        dataKey="totalPassengers"
-                        stroke="#4CAF50"
-                        name="Total Passengers"
-                        dot={false}
-                        strokeWidth={2}
-                    />
-                </LineChart>
-            </ResponsiveContainer>
+                    Reset Chart
+                </button>
+            </div>
+            <div ref={plotRef} id="throughputChart"></div>
+            <div style={{
+                marginTop: '16px',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: '16px',
+                fontSize: '14px'
+            }}>
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{
+                        fontWeight: '600',
+                        color: '#2563eb'
+                    }}>
+                        Bus Passengers
+                    </div>
+                    <div style={{
+                        fontSize: '24px',
+                        fontWeight: 'bold'
+                    }}>
+                        {totalBusPassengers}
+                    </div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{
+                        fontWeight: '600',
+                        color: '#dc2626'
+                    }}>
+                        Car Passengers
+                    </div>
+                    <div style={{
+                        fontSize: '24px',
+                        fontWeight: 'bold'
+                    }}>
+                        {totalCarPassengers}
+                    </div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{
+                        fontWeight: '600',
+                        color: '#059669'
+                    }}>
+                        Total Passengers
+                    </div>
+                    <div style={{
+                        fontSize: '24px',
+                        fontWeight: 'bold'
+                    }}>
+                        {totalBusPassengers + totalCarPassengers}
+                    </div>
+                </div>
+            </div>
         </div>
-    );
+        );
 };
 
-export default ThroughputChart;
+export default PlotlyChart;
