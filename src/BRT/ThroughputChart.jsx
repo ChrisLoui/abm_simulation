@@ -1,20 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Plotly from 'plotly.js-dist-min';
 
-const PlotlyChart = ({ totalBusPassengers = 0, totalCarPassengers = 0 }) => {
+const PlotlyChart = ({ totalBusPassengers = 0, totalCarPassengers = 0, totalPassengersAlighted = 0, shouldReset = false }) => {
     const plotRef = useRef(null);
     const [dataHistory, setDataHistory] = useState([]);
     const startTimeRef = useRef(Date.now());
 
     useEffect(() => {
         const currentTime = (Date.now() - startTimeRef.current) / 1000; // Time in seconds
-        const totalPassengers = totalBusPassengers + totalCarPassengers;
+        const totalBusCount = totalBusPassengers + totalPassengersAlighted;
+        const totalPassengers = totalBusCount + totalCarPassengers;
 
         // Update data history
         setDataHistory(prev => {
             const newEntry = {
                 time: currentTime,
-                busPassengers: totalBusPassengers,
+                busPassengers: totalBusCount,
                 carPassengers: totalCarPassengers,
                 totalPassengers: totalPassengers
             };
@@ -23,7 +24,7 @@ const PlotlyChart = ({ totalBusPassengers = 0, totalCarPassengers = 0 }) => {
             const updated = [...prev, newEntry];
             return updated.length > 100 ? updated.slice(-100) : updated;
         });
-    }, [totalBusPassengers, totalCarPassengers]);
+    }, [totalBusPassengers, totalCarPassengers, totalPassengersAlighted]);
 
     useEffect(() => {
         if (!plotRef.current || dataHistory.length === 0) return;
@@ -124,56 +125,54 @@ const PlotlyChart = ({ totalBusPassengers = 0, totalCarPassengers = 0 }) => {
     }, [dataHistory]);
 
     useEffect(() => {
-        // Initialize empty plot
-        if (plotRef.current) {
-            const initialData = [{
-                type: 'scatter',
-                x: [],
-                y: [],
-                mode: 'lines+markers',
-                name: 'Bus Passengers'
-            }];
+        // Reset effect
+        if (shouldReset) {
+            setDataHistory([]);
+            startTimeRef.current = Date.now();
 
-            const initialLayout = {
-                title: {
-                    text: 'Passenger Throughput',
-                    font: {
-                        size: 16
-                    }
-                },
-                width: 450,
-                height: 300,
-                xaxis: {
-                    title: 'Time (seconds)',
-                    titlefont: {
-                        size: 12
-                    }
-                },
-                yaxis: {
-                    title: 'Passengers Delivered',
-                    titlefont: {
-                        size: 12
-                    }
-                },
-                margin: {
-                    l: 50,
-                    r: 20,
-                    t: 40,
-                    b: 40
-                }
-            };
-
-            Plotly.newPlot(plotRef.current, initialData, initialLayout);
-        }
-
-        // Cleanup function
-        return () => {
+            // Reinitialize empty plot
             if (plotRef.current) {
-                Plotly.purge(plotRef.current);
-            }
-        };
-    }, []);
+                const initialData = [{
+                    type: 'scatter',
+                    x: [],
+                    y: [],
+                    mode: 'lines+markers',
+                    name: 'Bus Passengers'
+                }];
 
+                const initialLayout = {
+                    title: {
+                        text: 'Passenger Throughput',
+                        font: {
+                            size: 16
+                        }
+                    },
+                    width: 450,
+                    height: 300,
+                    xaxis: {
+                        title: 'Time (seconds)',
+                        titlefont: {
+                            size: 12
+                        }
+                    },
+                    yaxis: {
+                        title: 'Passengers Delivered',
+                        titlefont: {
+                            size: 12
+                        }
+                    },
+                    margin: {
+                        l: 50,
+                        r: 20,
+                        t: 40,
+                        b: 40
+                    }
+                };
+
+                Plotly.newPlot(plotRef.current, initialData, initialLayout);
+            }
+        }
+    }, [shouldReset]);
 
     return (
         <div style={{
@@ -215,7 +214,7 @@ const PlotlyChart = ({ totalBusPassengers = 0, totalCarPassengers = 0 }) => {
                         fontSize: '24px',
                         fontWeight: 'bold'
                     }}>
-                        {totalBusPassengers}
+                        {totalBusPassengers + totalPassengersAlighted}
                     </div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
@@ -243,7 +242,7 @@ const PlotlyChart = ({ totalBusPassengers = 0, totalCarPassengers = 0 }) => {
                         fontSize: '24px',
                         fontWeight: 'bold'
                     }}>
-                        {totalBusPassengers + totalCarPassengers}
+                        {totalBusPassengers + totalPassengersAlighted + totalCarPassengers}
                     </div>
                 </div>
             </div>

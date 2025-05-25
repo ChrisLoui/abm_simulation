@@ -64,6 +64,9 @@ const TrafficSimulation = () => {
     const [busTravelTimes, setBusTravelTimes] = useState([]);
     const [carTravelTimes, setCarTravelTimes] = useState([]);
 
+    // Add new state for chart reset
+    const [shouldResetCharts, setShouldResetCharts] = useState(false);
+
     // Convert simplified settings to simulation parameters
     const getSimulationParams = () => {
         // Traffic Density mapping
@@ -213,34 +216,118 @@ const TrafficSimulation = () => {
     };
 
     const handleSetup = () => {
-        // Reset all passenger counts and throughput data
-        setTotalBusPassengers(0);
-        setTotalCarPassengers(0);
-        setThroughputHistory([]);
-        throughputHistoryRef.current = [];
-
-        // Reset simulation with new settings
-        setIsSetup(false);
+        // Stop any ongoing simulation
         setIsRunning(false);
         if (animationRef.current) {
             cancelAnimationFrame(animationRef.current);
+            animationRef.current = null;
         }
         if (carSpawnerIntervalRef.current) {
             clearInterval(carSpawnerIntervalRef.current);
+            carSpawnerIntervalRef.current = null;
         }
 
-        renderCanvas(canvasRef.current);
-        setShowSettings(false);
+        // Trigger chart resets
+        setShouldResetCharts(true);
 
-        // Re-initialize with new settings
-        initializeTrafficElements();
+        // Reset all state variables
+        setVehicles([]);
+        setBuses([]);
+        setTotalBusPassengers(0);
+        setTotalCarPassengers(0);
+        setTotalPassengersAlighted(0);
+        setBusTravelTimes([]);
+        setCarTravelTimes([]);
+        setDriverStats({
+            polite: 0,
+            neutral: 0,
+            aggressive: 0
+        });
+        setActiveBusCount(0);
+        setTrafficDensity(0);
+        setThroughputHistory([]);
+        throughputHistoryRef.current = [];
+
+        // Reset bus stops
+        BUS_STOPS.forEach(stop => {
+            stop.waitingPassengers = 0;
+            stop.lastUpdateTime = null;
+        });
+
+        // Clear the canvas and redraw the empty road
+        renderCanvas(canvasRef.current);
+
+        // Hide settings panel and mark setup as complete
+        setShowSettings(false);
+        setIsSetup(true);
+
+        // Reset the charts reset trigger after a short delay
+        setTimeout(() => {
+            setShouldResetCharts(false);
+        }, 100);
     };
 
-    const toggleSimulation = () => {
+    const startSimulation = () => {
         if (!isSetup) {
             handleSetup();
         }
-        setIsRunning(prev => !prev);
+
+        // Initialize buses based on current settings
+        const params = getSimulationParams();
+        const newBuses = initializeBuses(params, LANES, scaleFactor);
+        setBuses(newBuses);
+
+        // Start the car spawner with current settings
+        const spawnInterval = 60000 / params.carsPerMinute; // Convert cars per minute to interval
+        carSpawnerIntervalRef.current = setInterval(() => {
+            setVehicles(prevVehicles => {
+                if (!prevVehicles) return [];
+
+                // Calculate traffic density
+                const laneDensity = {
+                    1: prevVehicles.filter(v => v.lane === 1).length,
+                    2: prevVehicles.filter(v => v.lane === 2).length
+                };
+
+                // Calculate maximum allowed cars per lane
+                const maxCarsPerLane = Math.floor(params.carsPerMinute / 2);
+
+                // Calculate spawn probability based on traffic density
+                const densityFactor1 = 1 - (laneDensity[1] / maxCarsPerLane);
+                const densityFactor2 = 1 - (laneDensity[2] / maxCarsPerLane);
+
+                // Only spawn new car if there's room in at least one lane
+                if (densityFactor1 > 0 || densityFactor2 > 0) {
+                    const newCar = createCar(params, LANES, scaleFactor);
+
+                    // Adjust spawn probability based on lane density
+                    const spawnProbability = newCar.lane === 1 ? densityFactor1 : densityFactor2;
+
+                    if (Math.random() < spawnProbability) {
+                        return [...prevVehicles, newCar];
+                    }
+                }
+
+                return prevVehicles;
+            });
+        }, spawnInterval);
+
+        // Start the animation loop
+        setIsRunning(true);
+        lastTimeRef.current = performance.now();
+        animationRef.current = requestAnimationFrame(animate);
+    };
+
+    // Modify the toggleSimulation function to use startSimulation
+    const toggleSimulation = () => {
+        if (!isRunning) {
+            startSimulation();
+        } else {
+            setIsRunning(false);
+            if (animationRef.current) {
+                cancelAnimationFrame(animationRef.current);
+            }
+        }
     };
 
     const animate = (timestamp) => {
@@ -277,10 +364,10 @@ const TrafficSimulation = () => {
         // Update buses and handle their throughput
         setBuses(prevBuses => {
             const updatedBuses = updateBuses(
-                prevBuses, vehicles, 
-                BUS_STOPS, 
-                CANVAS_WIDTH, 
-                deltaTime, 
+                prevBuses, vehicles,
+                BUS_STOPS,
+                CANVAS_WIDTH,
+                deltaTime,
                 LANES,
                 (passengersAlighted) => {
                     //Runs every time passengers get off a bus
@@ -937,10 +1024,13 @@ const TrafficSimulation = () => {
                                 <PlotlyChart
                                     totalBusPassengers={totalBusPassengers}
                                     totalCarPassengers={totalCarPassengers}
+                                    totalPassengersAlighted={totalPassengersAlighted}
+                                    shouldReset={shouldResetCharts}
                                 />
                                 <TravelTimeChart
                                     busTravelTimes={busTravelTimes}
                                     carTravelTimes={carTravelTimes}
+                                    shouldReset={shouldResetCharts}
                                 />
                             </div>
                             {/* Instructions */}

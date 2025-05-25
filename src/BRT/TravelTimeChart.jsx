@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Plotly from 'plotly.js-dist-min';
 
-const TravelTimeChart = ({ busTravelTimes = [], carTravelTimes = [] }) => {
+const TravelTimeChart = ({ busTravelTimes = [], carTravelTimes = [], shouldReset = false }) => {
     const plotRef = useRef(null);
     const [dataHistory, setDataHistory] = useState([]);
     const startTimeRef = useRef(Date.now());
@@ -143,70 +143,68 @@ const TravelTimeChart = ({ busTravelTimes = [], carTravelTimes = [] }) => {
     }, [dataHistory]);
 
     useEffect(() => {
-        // Initialize empty plot
-        if (plotRef.current) {
-            const initialData = [{
-                type: 'scatter',
-                x: [],
-                y: [],
-                mode: 'lines+markers',
-                name: 'Bus Travel Time'
-            }];
+        // Reset effect
+        if (shouldReset) {
+            setDataHistory([]);
+            startTimeRef.current = Date.now();
 
-            const initialLayout = {
-                title: {
-                    text: 'Travel Time',
-                    font: {
-                        size: 16
-                    }
-                },
-                width: 450,
-                height: 300,
-                xaxis: {
-                    title: 'Time (seconds)',
-                    titlefont: {
-                        size: 12
-                    }
-                },
-                yaxis: {
-                    title: 'Minutes',
-                    titlefont: {
-                        size: 12
-                    }
-                },
-                margin: {
-                    l: 50,
-                    r: 20,
-                    t: 40,
-                    b: 40
-                },
-                annotations: [{
-                    text: '1s = 1min',
-                    xref: 'paper',
-                    yref: 'paper',
-                    x: 1,
-                    xanchor: 'right',
-                    y: 1,
-                    yanchor: 'bottom',
-                    showarrow: false,
-                    font: {
-                        size: 10,
-                        color: '#666'
-                    }
-                }]
-            };
-
-            Plotly.newPlot(plotRef.current, initialData, initialLayout);
-        }
-
-        // Cleanup function
-        return () => {
+            // Reinitialize empty plot
             if (plotRef.current) {
-                Plotly.purge(plotRef.current);
-            }
-        };
-    }, []);
+                const initialData = [{
+                    type: 'scatter',
+                    x: [],
+                    y: [],
+                    mode: 'lines+markers',
+                    name: 'Bus Travel Time'
+                }];
 
+                const initialLayout = {
+                    title: {
+                        text: 'Travel Time',
+                        font: {
+                            size: 16
+                        }
+                    },
+                    width: 450,
+                    height: 300,
+                    xaxis: {
+                        title: 'Time (seconds)',
+                        titlefont: {
+                            size: 12
+                        }
+                    },
+                    yaxis: {
+                        title: 'Minutes',
+                        titlefont: {
+                            size: 12
+                        }
+                    },
+                    margin: {
+                        l: 50,
+                        r: 20,
+                        t: 40,
+                        b: 40
+                    },
+                    annotations: [{
+                        text: '1s = 1min',
+                        xref: 'paper',
+                        yref: 'paper',
+                        x: 1,
+                        xanchor: 'right',
+                        y: 1,
+                        yanchor: 'bottom',
+                        showarrow: false,
+                        font: {
+                            size: 10,
+                            color: '#666'
+                        }
+                    }]
+                };
+
+                Plotly.newPlot(plotRef.current, initialData, initialLayout);
+            }
+        }
+    }, [shouldReset]);
 
     // Calculate current averages for display
     const currentBusAvg = busTravelTimes.length > 0
