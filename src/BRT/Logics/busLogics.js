@@ -108,6 +108,11 @@ export const updateBuses = (prevBuses, vehicles, busStops, canvasWidth, deltaTim
     updatedBuses.forEach(bus => {
         if (!bus.active) return;
 
+         // Reset justLeftStop once bus has moved a bit from last stop (example: pathPosition > 0.1)
+        if (bus.justLeftStop && bus.pathPosition > 0.1) {
+            bus.justLeftStop = false;
+        }
+
         if (bus.stoppedAtBusStop >= 0) {
             bus.stopTime += deltaTime;
             const currentStop = busStops[bus.stoppedAtBusStop];
@@ -131,6 +136,9 @@ export const updateBuses = (prevBuses, vehicles, busStops, canvasWidth, deltaTim
                 bus.passengers += passengersToPickUp;
                 currentStop.waitingPassengers = Math.max(0, waitingPassengers - passengersToPickUp);
 
+                // Mark bus as having left this stop
+                 bus.lastVisitedStop = bus.stoppedAtBusStop;
+
                 bus.stoppedAtBusStop = -1;
                 bus.stopTime = 0;
                 bus.justLeftStop = true;
@@ -138,6 +146,8 @@ export const updateBuses = (prevBuses, vehicles, busStops, canvasWidth, deltaTim
         } else {
             busStops.forEach((stop, stopIndex) => {
                 if (stopIndex === bus.lastVisitedStop || bus.justLeftStop) return;
+
+                
 
                 const busPos = bus.x;
                 const stopPos = stop.x;
@@ -147,6 +157,8 @@ export const updateBuses = (prevBuses, vehicles, busStops, canvasWidth, deltaTim
                 if (isApproachingFromLeft) {
                     const busLane = lanes[bus.lane];
                     const laneY = getPositionOnPath(busLane.points, bus.pathPosition).y;
+
+                    console.log(`Bus ${bus.busId} at x=${bus.x}, Stop ${stopIndex} at x=${stop.x}, laneY=${laneY}, stopY=${stop.y}`);
 
                     if (Math.abs(laneY - stop.y) < bus.height) {
                         // Only stop if bus is not full or there are passengers waiting
