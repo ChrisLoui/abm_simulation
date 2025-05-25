@@ -119,8 +119,12 @@ export const updateVehicles = (prevVehicles, buses, deltaTime, lanes) => {
 
                 // Check for vehicles ahead
                 if (distAhead > 0 && distAhead < vehicleAheadDistance) {
-                    vehicleAheadDistance = distAhead;
-                    vehicleAhead = otherVehicle;
+                    // Increase safety distance if vehicle ahead is a bus
+                    const safetyMultiplier = otherVehicle.type === 'bus' ? 1.5 : 1.0;
+                    if (distAhead < vehicle.safeDistance * safetyMultiplier) {
+                        vehicleAheadDistance = distAhead;
+                        vehicleAhead = otherVehicle;
+                    }
                 }
 
                 // Check for vehicles behind
@@ -148,6 +152,7 @@ export const updateVehicles = (prevVehicles, buses, deltaTime, lanes) => {
             }
         });
 
+        
         // Implement Intelligent Driver Model (IDM) for speed control
         if (vehicleAhead) {
             const deltaV = vehicle.speed - vehicleAhead.speed;
@@ -157,18 +162,20 @@ export const updateVehicles = (prevVehicles, buses, deltaTime, lanes) => {
             const b = 3.0; // Comfortable deceleration
 
             const s = vehicleAheadDistance * 100; // Convert to meters
-            const sStar = s0 + Math.max(0, vehicle.speed * T + (vehicle.speed * deltaV) / (2 * Math.sqrt(a * b)));
+            // If vehicle ahead is a bus, increase s0 to keep more distance
+            const s0Adjusted = vehicleAhead.type === 'bus' ? s0 * 1.5 : s0;
 
-            // Calculate desired acceleration
+            const sStar = s0Adjusted + Math.max(0, vehicle.speed * T + (vehicle.speed * deltaV) / (2 * Math.sqrt(a * b)));
+
             const acceleration = a * (1 - Math.pow(vehicle.speed / vehicle.desiredSpeed, 4) - Math.pow(sStar / s, 2));
 
-            // Update speed based on acceleration
             vehicle.speed = Math.max(0, vehicle.speed + acceleration * (deltaTime / 1000));
         } else {
             // No vehicle ahead, accelerate towards desired speed
             const acceleration = 0.5; // Comfortable acceleration
             vehicle.speed = Math.min(vehicle.desiredSpeed, vehicle.speed + acceleration * (deltaTime / 1000));
         }
+
 
         // Check if car should try to change lanes
         if (vehicle.type === 'car' && vehicle.laneChangeProgress >= 1.0 && vehicle.laneChangeTimer <= 0) {
@@ -487,12 +494,13 @@ const isLaneChangeSafe = (car, vehicles, targetLane) => {
             if (dist > 0.5) dist -= 1;
             if (dist < -0.5) dist += 1;
 
-            // Check if vehicle is ahead or behind
             if (dist > 0 && dist < frontSafeDistance) {
-                isSafe = false; // Too close to vehicle ahead
+                // If vehicle ahead is a bus, increase caution
+                const multiplier = otherVehicle.type === 'bus' ? 1.5 : 1.0;
+                if (dist < frontSafeDistance * multiplier) {
+                    isSafe = false;
+                }
             } else if (dist < 0 && dist > -rearSafeDistance) {
-                // Vehicle behind
-                // If it's very close and faster than us, not safe
                 if (otherVehicle.speed > car.speed * 1.2) {
                     isSafe = false;
                 }
