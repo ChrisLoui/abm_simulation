@@ -413,108 +413,17 @@ const tryEmergencyLaneChange = (car, vehicles, buses, lanes) => {
 };
 
 /**
- * Calculate a score for a lane based on traffic conditions and driver behavior
+ * Analyze traffic ahead of the vehicle in a specified lane
  */
-const calculateLaneScore = (car, vehicleCount, averageSpeed, nearestDistance) => {
-    let score = 0;
-
-    // Base score on nearest vehicle distance
-    score += nearestDistance * 5;
-
-    // Lower score for lanes with more vehicles
-    score -= vehicleCount * 0.5;
-
-    // Prefer lanes with higher average speeds
-    score += averageSpeed * 2;
-
-    // Adjust score based on driver behavior
-    if (car.behaviorType === 'aggressive') {
-        // Aggressive drivers care more about speed and opportunity
-        score += averageSpeed * 2.0;  // Higher weight on speed
-        score -= (1 - nearestDistance) * 0.3; // Less penalty for close vehicles
-        score -= vehicleCount * 0.3; // Less penalty for traffic
-    } else if (car.behaviorType === 'polite') {
-        // Polite drivers prefer safety and stability
-        score += nearestDistance * 3; // Higher weight on safety distance
-        score += averageSpeed * 0.5; // Lower weight on speed
-        score -= vehicleCount * 0.7; // Higher penalty for traffic
-
-        // Polite drivers strongly prefer to stay in their lane
-        if (car.lane === car.preferredLane) {
-            score += 2.0; // Significant bonus for staying in preferred lane
-        }
-    } else {
-        // Neutral drivers have balanced preferences
-        score += nearestDistance * 2;
-        score += averageSpeed * 1.0;
-        score -= vehicleCount * 0.5;
-
-        // Moderate preference for preferred lane
-        if (car.lane === car.preferredLane) {
-            score += 1.0;
-        }
-    }
-
-    // If car is stuck, make any lane change more appealing
-    if (car.stuckTimer > 0) {
-        const stuckFactor = Math.min(car.stuckTimer / 5000, 1);
-        score += stuckFactor * 3;
-    }
-
-    return score;
-};
-
-/**
- * Check if changing to the target lane is safe
- */
-const isLaneChangeSafe = (car, vehicles, targetLane) => {
-    // Safe by default
-    let isSafe = true;
-
-    // Define safety thresholds based on behavior
-    const frontSafeDistance = car.behaviorType === 'aggressive' ? 0.02 :
-        car.behaviorType === 'neutral' ? 0.03 : 0.05;
-
-    const rearSafeDistance = car.behaviorType === 'aggressive' ? 0.01 :
-        car.behaviorType === 'neutral' ? 0.02 : 0.04;
-
-    // Check for vehicles in the target lane
-    vehicles.forEach(otherVehicle => {
-        if (car !== otherVehicle && otherVehicle.lane === targetLane && otherVehicle.active !== false) {
-            let dist = otherVehicle.pathPosition - car.pathPosition;
-
-            // Handle wrapping around the loop
-            if (dist > 0.5) dist -= 1;
-            if (dist < -0.5) dist += 1;
-
-            // Check if vehicle is ahead or behind
-            if (dist > 0 && dist < frontSafeDistance) {
-                isSafe = false; // Too close to vehicle ahead
-            } else if (dist < 0 && dist > -rearSafeDistance) {
-                // Vehicle behind
-                // If it's very close and faster than us, not safe
-                if (otherVehicle.speed > car.speed * 1.2) {
-                    isSafe = false;
-                }
-            }
-        }
-    });
-
-    return isSafe;
-};
-
-/**
- * Analyze traffic ahead of the car in a specified lane
- */
-const analyzeTrafficAhead = (car, vehicles, lookAheadDistance, specificLane = null) => {
-    const laneToCheck = specificLane !== null ? specificLane : car.lane;
+export const analyzeTrafficAhead = (vehicle, vehicles, lookAheadDistance, specificLane = null) => {
+    const laneToCheck = specificLane !== null ? specificLane : vehicle.lane;
     let vehiclesAhead = [];
     let nearestVehicleDistance = lookAheadDistance;
 
     // Find all vehicles ahead in the specified lane
     vehicles.forEach(otherVehicle => {
-        if (car !== otherVehicle && otherVehicle.lane === laneToCheck && otherVehicle.active !== false) {
-            let distAhead = otherVehicle.pathPosition - car.pathPosition;
+        if (vehicle !== otherVehicle && otherVehicle.lane === laneToCheck && otherVehicle.active !== false) {
+            let distAhead = otherVehicle.pathPosition - vehicle.pathPosition;
 
             // Handle wrapping around the loop
             if (distAhead < 0) distAhead += 1;
@@ -542,7 +451,7 @@ const analyzeTrafficAhead = (car, vehicles, lookAheadDistance, specificLane = nu
         averageSpeed = totalSpeed / vehiclesAhead.length;
     } else {
         // If no vehicles ahead, use maximum possible speed
-        averageSpeed = car.speed * 1.5;
+        averageSpeed = vehicle.speed * 1.5;
     }
 
     return {
@@ -551,4 +460,95 @@ const analyzeTrafficAhead = (car, vehicles, lookAheadDistance, specificLane = nu
         nearestVehicleDistance: nearestVehicleDistance,
         vehicles: vehiclesAhead
     };
+};
+
+/**
+ * Calculate a score for a lane based on traffic conditions and driver behavior
+ */
+export const calculateLaneScore = (vehicle, vehicleCount, averageSpeed, nearestDistance) => {
+    let score = 0;
+
+    // Base score on nearest vehicle distance
+    score += nearestDistance * 5;
+
+    // Lower score for lanes with more vehicles
+    score -= vehicleCount * 0.5;
+
+    // Prefer lanes with higher average speeds
+    score += averageSpeed * 2;
+
+    // Adjust score based on driver behavior
+    if (vehicle.behaviorType === 'aggressive') {
+        // Aggressive drivers care more about speed and opportunity
+        score += averageSpeed * 2.0;  // Higher weight on speed
+        score -= (1 - nearestDistance) * 0.3; // Less penalty for close vehicles
+        score -= vehicleCount * 0.3; // Less penalty for traffic
+    } else if (vehicle.behaviorType === 'polite') {
+        // Polite drivers prefer safety and stability
+        score += nearestDistance * 3; // Higher weight on safety distance
+        score += averageSpeed * 0.5; // Lower weight on speed
+        score -= vehicleCount * 0.7; // Higher penalty for traffic
+
+        // Polite drivers strongly prefer to stay in their lane
+        if (vehicle.lane === vehicle.preferredLane) {
+            score += 2.0; // Significant bonus for staying in preferred lane
+        }
+    } else {
+        // Neutral drivers have balanced preferences
+        score += nearestDistance * 2;
+        score += averageSpeed * 1.0;
+        score -= vehicleCount * 0.5;
+
+        // Moderate preference for preferred lane
+        if (vehicle.lane === vehicle.preferredLane) {
+            score += 1.0;
+        }
+    }
+
+    // If vehicle is stuck, make any lane change more appealing
+    if (vehicle.stuckTimer > 0) {
+        const stuckFactor = Math.min(vehicle.stuckTimer / 5000, 1);
+        score += stuckFactor * 3;
+    }
+
+    return score;
+};
+
+/**
+ * Check if changing to the target lane is safe
+ */
+export const isLaneChangeSafe = (vehicle, vehicles, targetLane) => {
+    // Safe by default
+    let isSafe = true;
+
+    // Define safety thresholds based on behavior
+    const frontSafeDistance = vehicle.behaviorType === 'aggressive' ? 0.02 :
+        vehicle.behaviorType === 'neutral' ? 0.03 : 0.05;
+
+    const rearSafeDistance = vehicle.behaviorType === 'aggressive' ? 0.01 :
+        vehicle.behaviorType === 'neutral' ? 0.02 : 0.04;
+
+    // Check for vehicles in the target lane
+    vehicles.forEach(otherVehicle => {
+        if (vehicle !== otherVehicle && otherVehicle.lane === targetLane && otherVehicle.active !== false) {
+            let dist = otherVehicle.pathPosition - vehicle.pathPosition;
+
+            // Handle wrapping around the loop
+            if (dist > 0.5) dist -= 1;
+            if (dist < -0.5) dist += 1;
+
+            // Check if vehicle is ahead or behind
+            if (dist > 0 && dist < frontSafeDistance) {
+                isSafe = false; // Too close to vehicle ahead
+            } else if (dist < 0 && dist > -rearSafeDistance) {
+                // Vehicle behind
+                // If it's very close and faster than us, not safe
+                if (otherVehicle.speed > vehicle.speed * 1.2) {
+                    isSafe = false;
+                }
+            }
+        }
+    });
+
+    return isSafe;
 };
