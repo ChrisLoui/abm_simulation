@@ -653,8 +653,8 @@ const TrafficSimulation = () => {
                 />
             </div>
 
-{/* Live Stats - Top Right Overlay */}
-{isSetup && (
+            {/* Live Stats - Top Right Overlay */}
+            {isSetup && (
                 <div style={{
                     position: 'absolute',
                     top: '100px',
@@ -678,12 +678,22 @@ const TrafficSimulation = () => {
                     </h3>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: '#6b7280', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                📈 <strong>Total Passengers Alighted</strong>
+                            </span>
+                            <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#d97706' }}>
+                                {totalPassengersAlighted}
+                            </span>
+                        </div>
+
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ color: '#6b7280', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 🚌 <strong>Bus Passengers</strong>
                             </span>
                             <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#2563eb' }}>
-                                {totalBusPassengers}
+                                {totalBusPassengers+totalPassengersAlighted}
                             </span>
                         </div>
 
@@ -704,16 +714,6 @@ const TrafficSimulation = () => {
                                 {totalBusPassengers + totalCarPassengers}
                             </span>
                         </div>
-
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ color: '#6b7280', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                📈 <strong>Total Passengers Alighted</strong>
-                            </span>
-                            <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#d97706' }}>
-                                {totalPassengersAlighted}
-                            </span>
-                        </div>
-
                         <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px', marginTop: '8px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ color: '#6b7280', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -728,15 +728,72 @@ const TrafficSimulation = () => {
                         <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px', marginTop: '8px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ color: '#6b7280', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    🚌⏱️ <strong>Avg Bus Travel Time</strong>
+                                </span>
+                                <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#2563eb' }}>
+                                    {busTravelTimes.length > 0 ?
+                                        `${(busTravelTimes.reduce((a, b) => a + b, 0) / busTravelTimes.length).toFixed(1)}s` :
+                                        'N/A'}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+                            <span style={{ color: '#6b7280', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                🚗⏱️ <strong>Avg Car Travel Time</strong>
+                            </span>
+                            <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#059669' }}>
+                                {carTravelTimes.length > 0 ?
+                                    `${(carTravelTimes.reduce((a, b) => a + b, 0) / carTravelTimes.length).toFixed(1)}s` :
+                                    'N/A'}
+                            </span>
+                        </div>
+
+                        <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px', marginTop: '12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: '#6b7280', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    ⚡ <strong>Speed Advantage</strong>
+                                </span>
+                                <span style={{
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    color: busTravelTimes.length > 0 && carTravelTimes.length > 0 ?
+                                        ((busTravelTimes.reduce((a, b) => a + b, 0) / busTravelTimes.length) <
+                                            (carTravelTimes.reduce((a, b) => a + b, 0) / carTravelTimes.length) ? '#059669' : '#dc2626') : '#6b7280'
+                                }}>
+                                    {busTravelTimes.length > 0 && carTravelTimes.length > 0 ?
+                                        ((busTravelTimes.reduce((a, b) => a + b, 0) / busTravelTimes.length) <
+                                            (carTravelTimes.reduce((a, b) => a + b, 0) / carTravelTimes.length) ? 'Buses Faster' : 'Cars Faster') :
+                                        'Calculating...'}
+                                </span>
+                            </div>
+                            {busTravelTimes.length > 0 && carTravelTimes.length > 0 && (
+                                <div style={{
+                                    fontSize: '12px',
+                                    color: '#9ca3af',
+                                    textAlign: 'center',
+                                    marginTop: '4px'
+                                }}>
+                                    {Math.abs(
+                                        (busTravelTimes.reduce((a, b) => a + b, 0) / busTravelTimes.length) -
+                                        (carTravelTimes.reduce((a, b) => a + b, 0) / carTravelTimes.length)
+                                    ).toFixed(1)}s difference
+                                </div>
+                            )}
+                        </div>
+
+                        <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px', marginTop: '12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: '#6b7280', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                     📊 <strong>Transit Efficiency</strong>
                                 </span>
                                 <span style={{
-                                        fontSize: '16px',
-                                        fontWeight: 'bold',
-                                        color: totalBusPassengers > totalCarPassengers ? '#059669' : '#dc2626'
-                                    }}>
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    color: totalBusPassengers > totalCarPassengers ? '#059669' : '#dc2626'
+                                }}>
                                     {totalBusPassengers > totalCarPassengers ? 'Buses Leading' :
-                                     totalCarPassengers > totalBusPassengers ? 'Cars Leading' : 'Tied'}
+                                        totalCarPassengers > totalBusPassengers ? 'Cars Leading' : 'Tied'}
                                 </span>
                             </div>
                             <div style={{
@@ -752,8 +809,7 @@ const TrafficSimulation = () => {
                         </div>
                     </div>
                 </div>
-            )}
-            {/* Settings Panel - Slide in from left */}
+            )}            {/* Settings Panel - Slide in from left */}
             <div style={{
                 position: 'fixed',
                 top: '80px',
