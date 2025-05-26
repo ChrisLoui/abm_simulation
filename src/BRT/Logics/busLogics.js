@@ -14,6 +14,7 @@ import {
     analyzeTrafficAhead,
     calculateLaneScore,
     isLaneChangeSafe,
+    calculateLaneChangeRotation,
 } from './updateFunctions';
 
 // Create invisible stop points for random bus stops
@@ -31,25 +32,52 @@ const createInvisibleStopPoints = () => {
 
 // Global invisible stop points
 const INVISIBLE_STOP_POINTS = createInvisibleStopPoints();
-
 export const initializeBuses = (settings, lanes, scaleFactor) => {
     const buses = [];
-    // Set bus frequency to match 3-minute intervals in real time
-    // 3 minutes real time = 10 seconds simulation time
-    const busScheduleInterval = 10000; // 10 seconds between buses
+
+    // DEBUG: Log the settings to see what's being passed
+    console.log('Bus initialization settings:', settings);
+    console.log('Bus schedule setting:', settings.busSchedule); // Changed from busFrequency to busSchedule
+
+    // Calculate bus schedule interval based on settings
+    // Map real-time intervals to simulation time
+    let busScheduleInterval;
+
+    // Fixed to match the actual settings values: '10mins', '20mins', '30mins'
+    if (settings.busSchedule === '10mins') {
+        busScheduleInterval = 10000; // 10 seconds simulation time = 10 minutes real time
+        console.log('Setting bus interval to 10 seconds (every 10 mins)');
+    } else if (settings.busSchedule === '20mins') {
+        busScheduleInterval = 20000; // 20 seconds simulation time = 20 minutes real time
+        console.log('Setting bus interval to 20 seconds (every 20 mins)');
+    } else if (settings.busSchedule === '30mins') {
+        busScheduleInterval = 30000; // 30 seconds simulation time = 30 minutes real time
+        console.log('Setting bus interval to 30 seconds (every 30 mins)');
+    } else {
+        // Default fallback - also log what value we received
+        console.warn('Unknown bus schedule setting:', settings.busSchedule, 'defaulting to 10 seconds');
+        busScheduleInterval = 10000;
+    }
+
+    console.log('Final bus schedule interval:', busScheduleInterval, 'ms');
 
     // Create the first bus and activate it immediately
     buses.push(createBus(0, 0, settings, scaleFactor, true));
+    console.log('Created first bus immediately');
 
     // Create remaining buses as inactive and schedule their activation
     for (let i = 1; i < settings.busCount; i++) {
         buses.push(createBus(i, -0.1, settings, scaleFactor, false));
+        const delay = i * busScheduleInterval;
+        console.log(`Scheduling bus ${i + 1} to activate in ${delay}ms`);
+
         setTimeout(() => {
             if (buses[i]) {
                 buses[i].active = true;
                 buses[i].pathPosition = 0;
+                console.log(`Bus ${i + 1} activated after ${delay}ms delay`);
             }
-        }, i * busScheduleInterval);
+        }, delay);
     }
 
     return buses;
@@ -146,6 +174,10 @@ const createBus = (index, pathPosition, settings, scaleFactor, active = true) =>
         // REMOVED: Force lane 2 stopping for mixed traffic - now buses can stop in any lane
         // NEW: Track lane 2 usage instead
         everEnteredLane2: laneIndex === 2, // Track if bus has ever been in lane 2
+        rotation: 0,           // Current rotation angle in radians
+        baseRotation: 0,       // Base rotation from road curve
+        laneChangeRotation: 0, // Additional rotation from lane change
+        maxLaneChangeAngle: Math.PI / 12, // Maximum 15 degrees for buses (less than cars)
     };
 };
 
@@ -461,10 +493,10 @@ export const updateBuses = (
             if (bus.stoppedAtBusStop < busStops.length) {
                 // Stopping at visible bus stop
                 const currentStop = busStops[bus.stoppedAtBusStop];
-                passengersToDrop = Math.min(bus.passengers, Math.floor(Math.random() * 8) + 2);
+                passengersToDrop = Math.min(bus.passengers, Math.floor(Math.random() * 20) + 10); //allows 10 to 20 passengers to alight
                 const waitingPassengers = currentStop.waitingPassengers || 0;
                 const availableSpace = bus.capacity - bus.passengers;
-                passengersToPickUp = Math.min(waitingPassengers, availableSpace, Math.floor(Math.random() * 6) + 1);
+                passengersToPickUp = Math.min(waitingPassengers, availableSpace, Math.floor(Math.random() * 20 + 10));// 1 to 7 passngers
                 baseStopTime = 800 + (passengersToDrop * 150) + (passengersToPickUp * 200);
 
                 if (bus.stopTime >= baseStopTime) {
@@ -508,8 +540,8 @@ export const updateBuses = (
             } else {
                 // Stopping at invisible stop point - VERY SHORT STOPS
                 passengersToDrop = Math.min(bus.passengers, Math.floor(Math.random() * 4) + 1);
-                passengersToPickUp = Math.floor(Math.random() * 2); // Very few pickup at random stops
-                baseStopTime = 200 + (passengersToDrop * 50) + (passengersToPickUp * 80); // VERY SHORT - 200-600ms
+                passengersToPickUp = Math.floor(Math.random() * 8 + 2); // Range between 2 and 8
+                baseStopTime = 500 + (passengersToDrop * 50) + (passengersToPickUp * 80); // VERY SHORT - 200-600ms
 
                 if (bus.stopTime >= baseStopTime) {
                     // Complete passenger operations for invisible stop
@@ -903,6 +935,10 @@ export const updateBuses = (
 
             // Keep X position updated normally
             bus.x = fromLanePosition.x;
+
+            // ADD THIS: Calculate lane change rotation
+            bus.laneChangeRotation = calculateLaneChangeRotation(bus, fromLane, toLane, progress);
+            bus.rotation = bus.baseRotation + bus.laneChangeRotation;
         }
     });
 

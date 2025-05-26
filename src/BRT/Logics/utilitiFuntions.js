@@ -26,24 +26,37 @@ export const updateVehiclePositions = (vehicleList, lanes) => {
             const arcEffect = Math.sin(easedT * Math.PI) * arcHeight;
             vehicle.y = directY + arcEffect;
 
+            // ENHANCED ANGLE CALCULATION FOR LANE CHANGES
             const fromDir = getDirectionOnPath(fromLane.points, vehicle.pathPosition);
             const toDir = getDirectionOnPath(toLane.points, vehicle.pathPosition);
             const fromAngle = Math.atan2(fromDir.y, fromDir.x);
             const toAngle = Math.atan2(toDir.y, toDir.x);
+
+            // Handle angle wrapping for smooth interpolation
             let angleDiff = toAngle - fromAngle;
             if (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
             if (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-            vehicle.angle = fromAngle + angleDiff * easedT;
+
+            // Add extra steering angle during lane change for more realistic turning
+            const laneChangeDirection = vehicle.targetLane > vehicle.lane ? 1 : -1;
+            const maxSteeringAngle = vehicle.type === 'bus' ? Math.PI / 12 : Math.PI / 8; // 15° for buses, 22.5° for cars
+            const steeringAngle = Math.sin(easedT * Math.PI) * maxSteeringAngle * laneChangeDirection;
+
+            vehicle.angle = fromAngle + angleDiff * easedT + steeringAngle;
         } else {
+            // Normal positioning for vehicles not changing lanes
             const lane = lanes[vehicle.lane];
             const position = getPositionOnPath(lane.points, vehicle.pathPosition);
             const direction = getDirectionOnPath(lane.points, vehicle.pathPosition);
+
             vehicle.x = position.x;
             vehicle.y = position.y;
+
             if (vehicle.initialPositioning) {
                 vehicle.y = position.y;
                 vehicle.initialPositioning = false;
             }
+
             vehicle.angle = Math.atan2(direction.y, direction.x);
         }
     });

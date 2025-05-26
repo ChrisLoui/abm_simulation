@@ -1,6 +1,6 @@
 // Canvas dimensions - landscape orientation with longer road
-export const CANVAS_WIDTH = 5000;  // Much wider than before
-export const CANVAS_HEIGHT = 1000;  // Taller for better proportions
+export const CANVAS_WIDTH = 4800;  // Much wider than before
+export const CANVAS_HEIGHT = 900;  // Taller for better proportions
 
 // Road length in meters (2.6km = 2600m)
 export const ROAD_LENGTH_METERS = 2600;
@@ -161,7 +161,7 @@ export const COLORS = {
 export const CAR_COLORS = [
     '#e81416', // Red
     '#ffa500', // Orange
-    '#faeb36', // Yellow
+    '#FFC0CB', // Yellow
     '#79c314 ', // Green
     '#003366'  // Very Dark Blue
 ];

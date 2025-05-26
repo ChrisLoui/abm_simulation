@@ -49,76 +49,129 @@ const drawLine = (ctx, points, strokeStyle, lineWidth, lineDash = []) => {
 
 const drawBusStops = (ctx, busStops) => {
     busStops.forEach((busStop, index) => {
-        // Ensure waitingPassengers is defined
         const waitingPassengers = busStop.waitingPassengers || 0;
 
-        // Draw the station base
-        ctx.lineWidth = 7;
-        ctx.strokeStyle = COLORS.BUS_STOP_RING;
+        // Draw station with enhanced styling - static
+        ctx.save();
+
+        // Station base with gradient
+        const gradient = ctx.createRadialGradient(busStop.x, busStop.y, 0, busStop.x, busStop.y, busStop.radius);
+        gradient.addColorStop(0, '#3b82f6');
+        gradient.addColorStop(0.7, '#2563eb');
+        gradient.addColorStop(1, '#1d4ed8');
+
+        // Glow effect
+        ctx.shadowColor = '#3b82f6';
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.arc(busStop.x, busStop.y, busStop.radius, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.fillStyle = COLORS.BUS_STOP_CENTER;
-        ctx.beginPath();
-        ctx.arc(busStop.x, busStop.y, busStop.radius - 10, 0, Math.PI * 2);
         ctx.fill();
 
-        // Draw station number and name
-        ctx.fillStyle = '#000';
-        ctx.font = 'bold 18px Arial';
+        // Inner circle
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(busStop.x, busStop.y, busStop.radius - 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Station icon (bus symbol)
+        ctx.fillStyle = '#2563eb';
+        ctx.font = 'bold 16px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText("Station", busStop.x, busStop.y - 12);
-        ctx.font = 'bold 22px Arial';
+        ctx.fillText('🚌', busStop.x, busStop.y - 5);
+
+        // Station number
+        ctx.fillStyle = '#1f2937';
+        ctx.font = 'bold 12px Arial';
         ctx.fillText(`${index + 1}`, busStop.x, busStop.y + 12);
 
-        // Draw waiting passenger visualization
-        const indicatorX = busStop.x + busStop.radius;
-        const indicatorY = busStop.y - busStop.radius - 60; // Moved above the station
-        const maxRadius = 80;
-        const minRadius = 40;
-        const maxPassengers = 20; // max expected waiting passengers
+        ctx.restore();
 
-        // Calculate ratio (0 to 1)
+        // Static passenger indicator
+        drawStaticPassengerIndicator(ctx, busStop, waitingPassengers);
+
+        // Draw static station canopy
+        drawStaticStationCanopy(ctx, busStop);
+    });};
+
+    const drawStaticPassengerIndicator = (ctx, busStop, waitingPassengers) => {
+        const indicatorX = busStop.x + busStop.radius - 40 ;
+        const indicatorY = busStop.y - busStop.radius - 85;
+        const maxPassengers = 20;
         const passengerRatio = Math.min(waitingPassengers / maxPassengers, 1);
 
-        // Calculate circle radius (between min and max)
-        const indicatorRadius = minRadius + (maxRadius - minRadius) * passengerRatio;
+        ctx.save();
 
-        // Draw circle border
-        ctx.strokeStyle = '#FFFFFF';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(indicatorX, indicatorY, indicatorRadius, 0, Math.PI * 2);
-        ctx.stroke();
+        // Static bubble background
+        const bubbleRadius = 25 + passengerRatio * 15;
+        const gradient = ctx.createRadialGradient(indicatorX, indicatorY, 0, indicatorX, indicatorY, bubbleRadius);
 
-        // Draw circle fill with opacity
-        ctx.globalAlpha = 0.4;
-        ctx.fillStyle = '#4CAF50';
+        if (waitingPassengers === 0) {
+            gradient.addColorStop(0, 'rgba(156, 163, 175, 0.8)');
+            gradient.addColorStop(1, 'rgba(107, 114, 128, 0.6)');
+        } else if (waitingPassengers < 5) {
+            gradient.addColorStop(0, 'rgba(34, 197, 94, 0.8)');
+            gradient.addColorStop(1, 'rgba(22, 163, 74, 0.6)');
+        } else if (waitingPassengers < 12) {
+            gradient.addColorStop(0, 'rgba(251, 191, 36, 0.8)');
+            gradient.addColorStop(1, 'rgba(245, 158, 11, 0.6)');
+        } else {
+            gradient.addColorStop(0, 'rgba(239, 68, 68, 0.8)');
+            gradient.addColorStop(1, 'rgba(220, 38, 38, 0.6)');
+        }
+
+        // Draw static bubble
+        ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.arc(indicatorX, indicatorY, indicatorRadius, 0, Math.PI * 2);
+        ctx.arc(indicatorX, indicatorY, bubbleRadius, 0, Math.PI * 2);
         ctx.fill();
-        ctx.globalAlpha = 1;
 
-        // Adjust font size based on radius
-        const fontSize = indicatorRadius * 0.8; // e.g. 80% of radius
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = `bold ${fontSize}px Arial`;
+        // Passenger count
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${Math.max(14, bubbleRadius * 0.6)}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(`${waitingPassengers}`, indicatorX, indicatorY);
+        ctx.fillText(waitingPassengers.toString(), indicatorX, indicatorY - 3);
 
+        // Small passenger icon
+        ctx.font = '16px Arial';
+        ctx.fillText('👥', indicatorX, indicatorY + 12);
 
-        // Draw station roof
+        ctx.restore();
+    };
+
+    const drawStaticStationCanopy = (ctx, busStop) => {
+        ctx.save();
+
+        // Modern bus shelter design - static
+        const canopyWidth = 60;
+        const canopyHeight = 25;
+        const canopyX = busStop.x - canopyWidth / 2;
+        const canopyY = busStop.y - busStop.radius - 50;
+
+        // Shelter roof
+        const roofGradient = ctx.createLinearGradient(canopyX, canopyY, canopyX, canopyY + canopyHeight);
+        roofGradient.addColorStop(0, '#e5e7eb');
+        roofGradient.addColorStop(1, '#9ca3af');
+
+        ctx.fillStyle = roofGradient;
         ctx.beginPath();
-        ctx.moveTo(busStop.x, busStop.y - busStop.radius - 10);
-        ctx.lineTo(busStop.x + 15, busStop.y - busStop.radius - 25);
-        ctx.lineTo(busStop.x - 15, busStop.y - busStop.radius - 25);
+        ctx.moveTo(canopyX - 5, canopyY);
+        ctx.lineTo(canopyX + canopyWidth + 5, canopyY);
+        ctx.lineTo(canopyX + canopyWidth, canopyY + canopyHeight);
+        ctx.lineTo(canopyX, canopyY + canopyHeight);
         ctx.closePath();
-        ctx.fillStyle = COLORS.BUS_STOP_RING;
         ctx.fill();
-    });
-};
+
+        // Support pillars
+        ctx.fillStyle = '#6b7280';
+        ctx.fillRect(canopyX + 5, canopyY + canopyHeight, 4, 25);
+        ctx.fillRect(canopyX + canopyWidth - 9, canopyY + canopyHeight, 4, 25);
+
+        ctx.restore();
+    };
 
 export const renderSimulation = (canvas, vehicles, buses, busStops, lanes, canvasWidth, canvasHeight, throughputHistory) => {
     renderCanvas(canvas);
@@ -186,7 +239,7 @@ const findNearCollisions = (vehicles) => {
 const drawVehicle = (ctx, vehicle) => {
     ctx.save();
     ctx.translate(vehicle.x, vehicle.y);
-    ctx.rotate(vehicle.angle);
+    ctx.rotate(vehicle.rotation);
     ctx.fillStyle = vehicle.color;
     const cornerRadius = vehicle.height / 8;
     if (vehicle.type === 'car') {

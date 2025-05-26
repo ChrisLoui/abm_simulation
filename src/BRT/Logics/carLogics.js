@@ -19,11 +19,11 @@ export const createCar = (settings, lanes, scaleFactor) => {
         (1 + Math.floor(Math.random() * 2)) : // Lanes 1 or 2 only
         Math.floor(Math.random() * 3); // Lanes 0, 1, or 2
 
-    // Convert speed to match simulation timing
-    // Real time: 3.12 minutes (187 seconds) for 2.6km at 50 km/h
-    // Simulation time: 30 seconds for 2.6km
-    // Speed factor = 187/30 = 6.23
-    const baseSpeed = (1 / 30) * 6.23; // One full loop takes 30 seconds in simulation time
+    // Convert speed to match new simulation timing: 1 sim second = 1 real minute
+    // Real time: 3.12 minutes for 2.6km at 50 km/h
+    // New simulation time: 3.12 seconds (since 1 sim second = 1 real minute)
+    // Base speed = 1 / 3.12 = 0.32 loops per simulation second
+    const baseSpeed = 1 / 4.5; // One full loop takes 3.12 seconds in simulation time
 
     // More realistic speed variations
     const speedVariation = Math.random() * 0.3 + 0.85; // 85-115% of base speed
@@ -97,11 +97,16 @@ export const createCar = (settings, lanes, scaleFactor) => {
             behaviorType === BEHAVIOR_TYPES.NEUTRAL ? 2500 : 3500,
         laneChangeCooldown: laneChangeCooldown,
         lastLaneChangeTime: 0,
-        passengers: 3,
+        passengers: Math.floor(Math.random() * 3) + 1,
         throughput: 0,
         stuckTimer: 0,
         lastSpeed: speed * speedAdjustment,
         acceleration: 0,
-        desiredSpeed: speed * speedAdjustment
+        desiredSpeed: speed * speedAdjustment,
+        // ADD THESE NEW ROTATION PROPERTIES:
+        rotation: 0,           // Current rotation angle in radians
+        baseRotation: 0,       // Base rotation from road curve
+        laneChangeRotation: 0, // Additional rotation from lane change
+        maxLaneChangeAngle: Math.PI / 8, // Maximum 22.5 degrees for lane changes
     };
 };

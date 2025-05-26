@@ -104,11 +104,21 @@ export const updateVehicles = (prevVehicles, buses, deltaTime, lanes) => {
             const progressChangePerMs = 1 / baseDuration;
             vehicle.laneChangeProgress -= progressChangePerMs * deltaTime;
 
+            const fromLane = vehicle.lane;
+            const toLane = vehicle.targetLane;
+            const progress = 1.0 - vehicle.laneChangeProgress; // Convert to forward progress
+
+            vehicle.laneChangeRotation = calculateLaneChangeRotation(vehicle, fromLane, toLane, progress);
+            vehicle.rotation = vehicle.baseRotation + vehicle.laneChangeRotation;
+
             if (vehicle.laneChangeProgress <= 0) {
                 vehicle.lane = vehicle.targetLane;
                 vehicle.laneChangeProgress = 1.0;
                 vehicle.laneChangeTimer = vehicle.laneChangeCooldown * (1 + Math.random() * 0.5);
-            }
+
+                // Reset rotation when lane change completes
+                vehicle.laneChangeRotation = 0;
+                vehicle.rotation = vehicle.baseRotation;            }
         }
 
         // Check vehicles ahead and behind in the same lane
@@ -152,7 +162,7 @@ export const updateVehicles = (prevVehicles, buses, deltaTime, lanes) => {
             }
         });
 
-        
+
         // Implement Intelligent Driver Model (IDM) for speed control
         if (vehicleAhead) {
             const deltaV = vehicle.speed - vehicleAhead.speed;
@@ -519,6 +529,22 @@ export const calculateLaneScore = (vehicle, vehicleCount, averageSpeed, nearestD
     }
 
     return score;
+};
+
+/**
+ * Calculate lane change rotation based on progress and direction
+ */
+export const calculateLaneChangeRotation = (vehicle, fromLane, toLane, progress) => {
+    if (progress >= 1.0) return 0;
+
+    // Determine direction: positive for right (higher lane number), negative for left
+    const direction = toLane > fromLane ? 1 : -1;
+
+    // Use sine wave for smooth rotation that peaks in middle of lane change
+    const rotationProgress = Math.sin(progress * Math.PI);
+
+    // Apply rotation based on vehicle type and direction
+    return direction * vehicle.maxLaneChangeAngle * rotationProgress;
 };
 
 /**
