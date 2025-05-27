@@ -23,7 +23,7 @@ export const createCar = (settings, lanes, scaleFactor) => {
     // Real time: 3.12 minutes for 2.6km at 50 km/h
     // New simulation time: 3.12 seconds (since 1 sim second = 1 real minute)
     // Base speed = 1 / 3.12 = 0.32 loops per simulation second
-    const baseSpeed = 1 / 7;
+    const baseSpeed = 1 / 6;
 
     // More realistic speed variations
     const speedVariation = Math.random() * 0.3 + 0.85; // 85-115% of base speed
